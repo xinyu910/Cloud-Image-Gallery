@@ -7,9 +7,9 @@ from flask import json
 def main():
     return render_template("home.html")
 
-'''
+
 @webapp.route('/key', methods=['POST'])
-def retrieve_by_key():
+def key():
     key = request.form.get('key')
 
     if key in memcache:
@@ -27,7 +27,7 @@ def retrieve_by_key():
         )
 
     return response
-'''
+
 @webapp.route('/statistics', methods=['POST'])
 def statistics():
     return render_template("statistics.html")
@@ -37,7 +37,7 @@ def config():
     return render_template("config.html")
 
 
-@webapp.route('/retrieve_key_form', methods=['POST'])
+@webapp.route('/retrieve_key_form', methods=['GET'])
 def retrieve_key_form():
     return render_template("key_form.html")
 
