@@ -1,8 +1,8 @@
 import os
 
 from flask import jsonify
-from app import webapp, memcache, memcacheConfig, Stats, EachStat
-from app.Config import Config
+from Memcache import webapp, memcache, memcacheConfig, Stats, EachStat
+from Memcache.Config import Config
 import datetime
 import json
 

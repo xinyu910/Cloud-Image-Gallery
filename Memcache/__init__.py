@@ -43,7 +43,7 @@ class Stats:
         calculate hit and miss rate with the statlist
         """
 
-from app import main
+from Memcache import main
 
 
 
