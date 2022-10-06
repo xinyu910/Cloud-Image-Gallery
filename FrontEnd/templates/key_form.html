@@ -9,11 +9,12 @@
         {% include "nav_bar.html" %}
         <div class="formContainer">
             <form action="{{ url_for('key')}}" method="post">
-                <div class="mb-3">
-                    <label for="key" class="form-label">Key</label>
-                    <input size="lg" type="text" name="key" id="key" class="form-control"/>
+                <label for="key" class="form-label">Key</label>
+                <input type="text" name="key" id="key" class="form-control"/>
+                <div style="text-align: center">
                     <button type="submit" value="get" class="form-button">Get Image</button>
                 </div>
+
             </form>
         </div>
     </body>

@@ -111,25 +111,27 @@ button:hover {
     display:flex;
     justify-content:center;
     align-items:center;
-    height:60vmin;
-    width: 40vw;
+    height:50vmin;
+    width: 65vmin;
     background-color: #DAD4CB;
     box-shadow: 0.8vw 0.8vmin 1vmin rgba(0, 0, 0, 0.2);
     font-family: 'Poppins', cursive;
     border: none;
     border-radius: 3vmin;
-    margin: 10vh auto auto auto;
+    margin: 15vh auto auto auto;
     color: #3D4A55;
     font-size: 3vmin;
 }
 
 .form-control {
-    box-shadow: inset 0.1vh 0.15vw 0.3vh rgba(0, 0, 0, 0.25)
+    box-shadow: inset 0.1vh 0.15vw 0.3vh rgba(0, 0, 0, 0.25);
+    height: 6vmin;
+    width: 35vmin;
 }
 
 .form-button {
-    width: 30vmin;
-    height: 8vmin;
+    width: 28vmin;
+    height: 7.5vmin;
     border: none;
     border-radius: 3vmin;
     font-size: 3vmin;
@@ -137,6 +139,7 @@ button:hover {
     color: #FFFFFF;
     cursor: pointer;
     box-shadow: 0 0.8vmin 1vmin rgba(0, 0, 0, 0.2);
-    margin: 2.3vh 0vh auto auto;
-    background-color: #819FA6
+    margin: 3vmin 0 auto auto;
+    background-color: #819FA6;
+    text-align: center;
 }
