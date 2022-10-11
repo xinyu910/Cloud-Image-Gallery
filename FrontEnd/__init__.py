@@ -1,9 +1,11 @@
 from flask import Flask
+from FrontEnd.config import db_config
 
-global memcache
+global key_image
 
 webapp = Flask(__name__)
-memcache = {}
+
+key_image = {}
 
 from FrontEnd import main
 

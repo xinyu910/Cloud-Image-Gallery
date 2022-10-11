@@ -10,11 +10,10 @@
         <div class="formContainer">
             <form action="{{ url_for('key')}}" method="post">
                 <label for="key" class="form-label">Key</label>
-                <input type="text" name="key" id="key" class="form-control"/>
+                <input type="text" name="key" id="key" class="form-control required"/>
                 <div style="text-align: center">
                     <button type="submit" value="get" class="form-button">Get Image</button>
                 </div>
-
             </form>
         </div>
     </body>
