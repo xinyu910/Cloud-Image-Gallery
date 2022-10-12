@@ -6,6 +6,7 @@ import os
 import cv2
 import datetime
 from datetime import timedelta
+import base64
 from memcache import Stats
 
 #global memcache dict
@@ -69,8 +70,10 @@ def saveFile(f, join_path):
 #   没试过
 def saveDict(key, join_path, image_name):
     with open(join_path, 'rb') as f:
-        image = f.read()
-    memcache[key] = {'image_name': image_name, 'content': image, 'time': datetime.datetime.now()}
+        #image = f.read()
+        image_Binary = f.read()
+        imageBase64Encode = base64.b64encode(image_Binary)
+    memcache[key] = {'image_name': image_name, 'content': imageBase64Encode, 'time': datetime.datetime.now()}
 
 
 """///////////////////////////////////FOR DELET METHOD///////////////////////////////////"""
@@ -163,7 +166,7 @@ def GET(user_input):
             })
         else:
             return jsonify({"success": "true",
-                            "content": memcache[user_input]['content']})
+                            "content": memcache[user_input]['content'].decode()})
     else:
         return jsonify({
             "success": "false",
@@ -180,6 +183,7 @@ def CLEAR():
                     "message": "OK"})
 
 
+#   删除重复的key
 def invalidateKey(key):
     pass
 

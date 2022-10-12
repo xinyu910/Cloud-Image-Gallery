@@ -24,4 +24,3 @@ CREATE TABLE statistics(id int NOT NULL AUTO_INCREMENT,
 
 
 
-
