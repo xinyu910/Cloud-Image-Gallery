@@ -1,100 +1,137 @@
 # coding:utf-8
 
-from flask import Flask, render_template, request, redirect, url_for, make_response, jsonify
+from flask import Flask, render_template, request, redirect, url_for, make_response, jsonify, g
 from werkzeug.utils import secure_filename
 import os
-import cv2
 import datetime
 from datetime import timedelta
 import base64
-from memcache import Stats
+#from memcache_stat import Stats, SingleStat, eachState, cacheTotalState
+from Memcache import webapp as app, memcache
+import sys
+import random
+import mysql.connector
+from Memcache.config import db_config
 
-#global memcache dict
-global memcache
-memcache = {}
+app.app_context().push()
+
 # config from the db
-# default setting capacity in MB, replacement policy: Least Recently Used or Random Replacement
-memcacheConfig = {'capacity': 400000, 'policy': 'LRU'}
-
 # 设置允许的文件格式
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'JPG', 'PNG', 'bmp'])
+global memcacheConfig
+
+def connect_to_database():
+    return mysql.connector.connect(user=db_config['user'],
+                                   password=db_config['password'],
+                                   host=db_config['host'],
+                                   database=db_config['database'])
 
 
-app = Flask(__name__)
-# 设置静态文件缓存过期时间
-app.send_file_max_age_default = timedelta(seconds=1)
-
-"""/////////////////////////////////JUST FOR TEST/////////////////////////////////////"""
-@app.route('/', methods=['POST', 'GET'])
-def welcome():
-    return "welcome"
+def get_db():
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = connect_to_database()
+    return db
 
 
-@app.route('/upload', methods=['POST', 'GET'])  # 添加路由
-def upload():
-    if request.method == 'POST':
-        f = request.files['file']
+@app.teardown_appcontext
+def teardown_db(exception):
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.close()
 
-        if not (f and allowed_file(f.filename)):
-            return jsonify({"error": 1001, "msg": "请检查上传的图片类型，仅限于png、PNG、jpg、JPG、bmp"})
+def get_config():
+    cnx = get_db()
+    cursor = cnx.cursor()
+    query = '''SELECT capacity, policy
+                    FROM configurations WHERE config_id = 1;
+                '''
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    cnx.close()
+    return {'capacity': rows[0][0], 'policy': rows[0][1]}
 
-        user_input = request.form.get("name")
 
-        basepath = os.path.dirname(__file__)  # current path
-        imagename = secure_filename(f.filename)  # file name
-
-        join_path = os.path.join(basepath, 'static/image', imagename)
-
-        PUT(user_input, join_path, imagename)
-
-        return render_template('uploadok.html', userinput=user_input, file_name=join_path)
-    return render_template('upload.html')
-
+memcacheConfig = get_config()
 
 """///////////////////////////////////FOR PUT METHOD///////////////////////////////////"""
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
 
-def getSize(image_path='./static/image/testimage.png'):
-    # calc size of the folder
-    size = os.path.getsize(image_path)  # In Bytes
-    return size
-
-
-def saveFile(f, join_path):
-    f.save(join_path)  # save the file to disk
-    img = cv2.imread(join_path)
-    cv2.imwrite(join_path, img)
-
-#   没试过
-def saveDict(key, join_path, image_name):
-    with open(join_path, 'rb') as f:
-        #image = f.read()
-        image_Binary = f.read()
-        imageBase64Encode = base64.b64encode(image_Binary)
-    memcache[key] = {'image_name': image_name, 'content': imageBase64Encode, 'time': datetime.datetime.now()}
-
+def saveDict(key, image_Binary):   
+    #image_Binary = f.read()
+    """imageBase64Encode = base64.b64encode(image_Binary).decode('utf-8')
+    memcache[key] = {'content': imageBase64Encode, 'time': datetime.datetime.now()}
+    """
+    memcache[key] = {'content': image_Binary, 'time': datetime.datetime.now()}
 
 """///////////////////////////////////FOR DELET METHOD///////////////////////////////////"""
 
-def clearCache(base_path):
-        for image in os.listdir(os.path.join(base_path, 'static/image')):
-            print("Trying to delete ", image)
-            for filetype in ALLOWED_EXTENSIONS:
-                if image.endswith(filetype):
-                    print("Deleting ", image)
-                    os.remove(os.path.join(base_path, 'static/image', image))
+def clearCache():
+    """ for image in os.listdir(os.path.join(base_path, 'static/image')):
+        print("Trying to delete ", image)
+        for filetype in ALLOWED_EXTENSIONS:
+            if image.endswith(filetype):
+                print("Deleting ", image)
+                os.remove(os.path.join(base_path, 'static/image', image))"""
+    print("clean all cache")
+    memcache.clear()
 
-        memcache.clear()
+
+"""/////////////////////////////////////CAPACITY CALC/////////////////////////////////////"""
+
+def capacitySum():
+    """get the capacity of the dict"""
+    sizeMB = sys.getsizeof(memcache)/1048576
+    return sys.getsizeof(memcache)
+
+""""//////////////////////////////////invalidatekey////////////////////////////////////////"""
+
+#   delete same key
+def invalidatekey(user_input):
+    if memcache.has_key(user_input):
+        memcache.delete(user_input)
+    data = {"success": "true"}
+    response = app.response_class(
+        response=json.dumps(data),
+        status=200,
+        mimetype='application/json'
+    )
+    return response
+
+"""/////////////////////////////////replacement policies/////////////////////////////////"""
+
+def dictLRU():
+    OldTimeStamp = min([d['time'] for d in memcache.values()])
+    LRU = ""
+    for key in memcache.keys():
+        if memcache[key]['timestamp'] == OldTimeStamp:
+            oldestKey = key #find oldest key
+            
+    memcache.delete(oldestKey)# delete oldest key
 
 
-"""//////////////////////////////////////API METHOD///////////////////////////////////"""
+def dictRandom():
+    keys = list(memcache.keys())
+    keyIndex = random.randint(0, len(keys)-1)
 
-def PUT(user_input, join_path, image_name):
+    memcache.delete(keys[keyIndex]) # randomly delete
+
+
+def fitCapacity(currentSize):
+    while((currentSize) > memcacheConfig['capacity']):
+        #capacity full
+        print("Error: Larger than capacity, remove one")
+        if (memcacheConfig['capacity'] == "LRU"):
+            dictLRU()
+        else:
+            dictRandom()
+
+
+def PUT(user_input, image_file):
     """
     :param user_input: key
-    :param join_path: target path of the image(including local path and file name)
     :param imagename: name of the image
     :return:
         json: "success": "false",
@@ -103,89 +140,70 @@ def PUT(user_input, join_path, image_name):
                 "message": errormessage
                 }
     """
-
-    print("-----join path------", join_path)
-
     """file type error"""
-    f = request.files['file']
-    if not (f and allowed_file(f.filename)):
-        return jsonify({"success": "false",
-                        "error": {"code": 400,
-                                  "message": "Error: wrong file type, expecting png, jpg, JPG, PNG, bmp"
-                                  }
-                        })
-    """file path error"""
-    if not join_path:
-        print("Error: Path missing!")
-        message = "Error: Path missing!"
-        return jsonify({"success": "false",
-                        "error": {"code": 404,
-                                  "message": "Path missing"
-                                  }
-                        })
-    """path missing error"""
-    if not os.path.isfile(join_path):
-        message = "Error: path is missing! " + join_path
-        print(message)
-        return jsonify({"success": "false",
-                        "error": {"code": 404,
-                                  "message": message
-                                  }
-                        })
-    """file size larger than capacity"""
-    if getSize(join_path) > memcacheConfig['capacity']:
-        print("Error: File size larger than capacity allowed!")
-        message = "Error: File size larger than capacity"
-        return jsonify({"success": "false",
-                        "error": {"code": 400,
-                                  "message": message
-                                  }
-                        })
-
-    """f.save(join_path)  # save the file to disk
-    img = cv2.imread(join_path)
-    cv2.imwrite(join_path, img)"""
-    saveFile(f, join_path)
-    saveDict(user_input, join_path, image_name)
-
-    """with open(join_path, 'rb') as f:
-        image = f.read()
-    memcache[user_input] = {'name': image_name, 'content': image, 'time': datetime.datetime.now()}"""
-
-
-#   没试过
-def GET(user_input):
-    if user_input:
-        if user_input not in memcache.keys():
-            return jsonify({
-                "success": "false",
+    if not (f and allowed_file(image_file.filename)):
+        data = {"success": "false",
                 "error": {
                     "code": 400,
-                    "message": "please enter a valid key"
-                }
-            })
-        else:
-            return jsonify({"success": "true",
-                            "content": memcache[user_input]['content'].decode()})
-    else:
-        return jsonify({
-            "success": "false",
+                    "message": "Error: wrong file type, expecting png, jpg, JPG, PNG, bmp"
+                }}
+        response = app.response_class(
+            response=json.dumps(data),
+            status=400,
+            mimetype='application/json'
+            )
+        return response
+
+    invalidatekey(user_input)# remove 
+    fitCapacity(capacitySum() + (sys.getsizeof(image_file)/1048576))#fit capacity 字典满了
+    saveDict(user_input, image_file)# add
+    data = {"success": "true"}
+    response = app.response_class(
+        response=json.dumps(data),
+        status=200,
+        mimetype='application/json'
+    )
+    return response
+
+
+def GET(user_input):
+    if user_input not in memcache.keys():
+        data = {"success": "false",
             "error": {
-                "code": 400,
-                "message": "please enter a key"
-            }
-        })
+                "code": 404,
+                "message": "Unknown Key"
+            }}
+        response = app.response_class(
+            response=json.dumps(data),
+            status=404,
+            mimetype='application/json'
+            )
+        return response
+    else:
+        #timestemp update
+        memcache[user_input]['time'] = datetime.datetime.now()
+        data = {
+            "success": "true",
+            "content": memcache[user_input]['content']
+        }
+        response = app.response_class(
+            response=json.dumps(data),
+            status=200,
+            mimetype='application/json'
+        )
+        return response
+
 
 #   没试过
 def CLEAR():
-    clearCache(os.path.dirname(__file__))
-    return jsonify({"statusCode": 200,
-                    "message": "OK"})
-
-
-#   删除重复的key
-def invalidateKey(key):
-    pass
+    clearCache()
+    data = {"success": "true"}
+    response = app.response_class(
+        response=json.dumps(data),
+        status=200,
+        mimetype='application/json'
+    )
+    return response
 
 
 def refreshConfiguration():
@@ -193,4 +211,4 @@ def refreshConfiguration():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)

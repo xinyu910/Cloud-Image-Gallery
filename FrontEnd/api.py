@@ -9,30 +9,38 @@ from werkzeug.utils import secure_filename
 
 @webapp.route('/api/list_keys', methods=['POST'])
 def list_keys():
-    """Return list_keys response, for api endpoint test"""
-    cnx = get_db()
-
-    cursor = cnx.cursor()
-
-    query = ''' SELECT image_id, image_path
-                    FROM images;
-                '''
-
-    cursor.execute(query)
-    rows = cursor.fetchall()
-
-    data = {
-        "success": "true",
-        "keys": [i[0] for i in rows]
-    }
-
-    response = webapp.response_class(
-        response=json.dumps(data),
-        status=200,
-        mimetype='application/json')
-
-    cnx.close()
-    return response
+    """Return list_keys response"""
+    try:
+        cnx = get_db()
+        cursor = cnx.cursor()
+        query = ''' SELECT image_id, image_path
+                        FROM images;
+                    '''
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        data = {
+            "success": "true",
+            "keys": [i[0] for i in rows]
+        }
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=200,
+            mimetype='application/json')
+        cnx.close()
+        return response
+    except:
+        data = {
+            "success": "false",
+            "error": {
+                "code": 500,
+                "message": "Internal error, unable to get the keys"
+            }}
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=500,
+            mimetype='application/json')
+        return response
+        
 
 
 @webapp.route('/api/upload', methods=['POST'])
@@ -49,12 +57,28 @@ def apiUpload():
         data = {
             "success": "false",
             "error": {
-                "code": 500,
-                "message": "image file or key is not given from form"
+                "code": 400,
+                "message": "image file or key is not given"
             }}
         response = webapp.response_class(
             response=json.dumps(data),
             status=400,
+            mimetype='application/json')
+        return response
+
+    # invalidate key in memcache
+    dataSend = {"key": image_key}
+    res= requests.post('http://localhost:5001/invalidateKey', json=dataSend)
+    if (res.status_code != 200):
+        data = {
+            "success": "false",
+            "error": {
+                "code": 500,
+                "message": "Invalidate key error"
+            }}
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=500,
             mimetype='application/json')
         return response
 
@@ -99,7 +123,6 @@ def apiUpload():
         cnx.commit()
 
     cnx.close()
-    key_image[image_key] = filename
 
     data = {
         "success": "true"
@@ -112,67 +135,81 @@ def apiUpload():
     return response
 
 
-@webapp.route('/api/key/<key_value>', methods=['POST'])
+@webapp.route('/api/key/<string: key_value>', methods=['POST'])
 def apiKey(key_value):
-    # image_key = request.form.get('key')
-    # not sure
     image_key = key_value
     if image_key == '':
         data = {
             "success": "false",
             "error": {
-                "code": 500,
-                "message": "Image Key is not given from form"
+                "code": 400,
+                "message": "Image Key is not given"
             }}
         response = webapp.response_class(
             response=json.dumps(data),
             status=400,
             mimetype='application/json')
         return response
-
-    cnx = get_db()
-    cursor = cnx.cursor()
-
-    # check if database has the key or not
-    has_key = ''' SELECT image_path FROM images WHERE image_id = %s'''
-
-    cursor.execute(has_key, (image_key,))
-
-    rows = cursor.fetchall()
-
-    if rows:
-        path = rows[0][0]
-        path = path.replace('\\', '/')
-        path = rows[0][0]
-        path = path.replace('\\', '/')
-        index = path.find('/')
-        path = path[index + 1:]
-        path = os.path.join('./../', path)
-        base64_image = base64.b64encode(open(path, "rb").read()).decode('utf-8')
-        data = {
-            "success": "true",
-            "content": base64_image
-        }
-        response = webapp.response_class(
-            response=json.dumps(data),
-            status=200,
-            mimetype='application/json'
-        )
-
+    
+    dataSend = {"key": image_key}
+    res= requests.post('http://localhost:5001/GET', json=dataSend)
+    if (res.status_code != 200):
+        return render_template('show_image.html', key=image_key, image="data:image/png;base64, " + res["content"])
     else:
-        data = {
-            "success": "false",
-            "error": {
-                "code": 400,
-                "message": "Unknown key"
-         }
-}
-        response = webapp.response_class(
-            response=json.dumps(data),
-            status=400,
-            mimetype='application/json'
-        )
+        cnx = get_db()
+        cursor = cnx.cursor()
 
-    return response
+        # check if database has the key or not
+        has_key = ''' SELECT image_path FROM images WHERE image_id = %s'''
+
+        cursor.execute(has_key, (image_key,))
+        rows = cursor.fetchall()
+
+        if rows:
+            path = rows[0][0]
+            path = path.replace('\\', '/')
+            index = path.find('/')
+            path = path[index + 1:]
+            path = os.path.join('./../', path)
+            base64_image = base64.b64encode(open(path, "rb").read()).decode('utf-8')
+            dataSend = {"key": image_key, "image": base64_image}
+            res= requests.post('http://localhost:5001/PUT', json=dataSend)
+            if(res.status_code != 200):
+                data = {
+                "success": "false",
+                "error": {
+                    "code": 500,
+                    "message": "Internal Error, memcache put error"
+                    }}
+                response = webapp.response_class(
+                    response=json.dumps(data),
+                    status=500,
+                    mimetype='application/json'
+                )
+            else:
+                data = {
+                    "success": "true",
+                    "content": base64_image
+                }
+                response = webapp.response_class(
+                    response=json.dumps(data),
+                    status=200,
+                    mimetype='application/json'
+                )
+        else:
+            data = {
+                "success": "false",
+                "error": {
+                    "code": 404,
+                    "message": "Unknown key"
+                    }}
+            response = webapp.response_class(
+                response=json.dumps(data),
+                status=404,
+                mimetype='application/json'
+            )
+
+        return response
+
 
 

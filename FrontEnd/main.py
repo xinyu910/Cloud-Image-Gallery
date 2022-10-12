@@ -3,8 +3,9 @@ import os
 import mysql.connector
 from flask import render_template, request, g, redirect, url_for
 from werkzeug.utils import secure_filename
+import requests
 
-from FrontEnd import webapp, key_image
+from FrontEnd import webapp
 from FrontEnd.config import db_config
 
 UPLOAD_FOLDER = 'FrontEnd/static/images'
@@ -55,17 +56,14 @@ def failure():
 @webapp.route('/listKeys', methods=['GET'])
 def listKeys():
     """Display the html page that shows all the keys in the database"""
+
     cnx = get_db()
-
     cursor = cnx.cursor()
-
-    query = ''' SELECT image_id, image_path
+    query = '''SELECT image_id, image_path
                     FROM images;
                 '''
-
     cursor.execute(query)
     rows = cursor.fetchall()
-
     cnx.close()
 
     return render_template("key_list.html", cursor=rows)
@@ -83,29 +81,37 @@ def key():
 
     if image_key == '':
         return redirect(url_for('failure', msg="Key is not given or not given from form"))
-
-    cnx = get_db()
-    cursor = cnx.cursor()
-
-    # check if database has the key or not
-    has_key = ''' SELECT image_path FROM images WHERE image_id = %s'''
-
-    cursor.execute(has_key, (image_key,))
-
-    rows = cursor.fetchall()
-    cnx.close()
-
-    if rows:
-        path = rows[0][0]
-        path = path.replace('\\', '/')
-        index = path.find('/')
-        path = path[index + 1:]
-        path = os.path.join('./../', path)
-        return render_template('show_image.html', key=image_key, path=path), 200
+    
+    # find in memcache
+    dataSend = {"key": image_key}
+    res= requests.post('http://localhost:5001/GET', json=dataSend)
+    if (res.status_code == 200):
+        return render_template('show_image.html', key=image_key, image=res.text["content"])
     else:
-        return redirect(url_for('failure', msg="Unknown Key"))
+        # if not in cache, get from database and call put in memcache
+        cnx = get_db()
+        cursor = cnx.cursor()
 
-    return response
+        # check if database has the key or not
+        has_key = ''' SELECT image_path FROM images WHERE image_id = %s'''
+
+        cursor.execute(has_key, (image_key,))
+        rows = cursor.fetchall()
+        cnx.close()
+
+        if rows:
+            path = rows[0][0]
+            path = path.replace('\\', '/')
+            index = path.find('/')
+            path = path[index + 1:]
+            path = os.path.join('./../', path)
+            base64_image = base64.b64encode(open(path, "rb").read()).decode('utf-8')
+            dataSend = {"key": image_key, "image": base64_image}
+            res= requests.post('http://localhost:5001/PUT', json=dataSend)
+            return render_template('show_image.html', key=image_key, image=base64_image)
+        else:
+            return redirect(url_for('failure', msg="Unknown Key"))
+
 
 
 @webapp.route('/statistics', methods=['GET'])
@@ -156,13 +162,14 @@ def upload():
 
     # check if file is empty
     if image_file.filename == '' or image_key == '':
-        data = {
-            "success": "false",
-            "error": {
-                "code": 400,
-                "message": "No image file or key given"
-            }}
         return redirect(url_for('failure', msg="No image file or key given or they are not given through form"))
+
+    # invalidate key in memcache
+    dataSend = {"key": image_key}
+    res= requests.post('http://localhost:5001/invalidateKey', json=dataSend)
+    
+    if (res.status_code != 200):
+       return redirect(url_for('failure', msg="Invalidate key error"))
 
     cnx = get_db()
     cursor = cnx.cursor()
@@ -203,6 +210,8 @@ def upload():
         cnx.commit()
 
     cnx.close()
-    key_image[image_key] = filename
 
     return redirect(url_for('success', msg="Image Successfully Uploaded"))
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
