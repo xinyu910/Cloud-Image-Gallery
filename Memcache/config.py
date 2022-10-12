@@ -9,4 +9,4 @@ class Config():
                  'host': '____',
                  'database': '____'}
 
-    UPLOAD_FOLDER = './uploads/'
+    UPLOAD_FOLDER = './mem/'
