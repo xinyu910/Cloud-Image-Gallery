@@ -2,7 +2,7 @@ import base64
 from flask import render_template, url_for, request, g
 from FrontEnd import webapp, key_image
 from flask import json
-from FrontEnd.main import get_db
+from FrontEnd.main import get_db, allowed_file
 import os
 from werkzeug.utils import secure_filename
 
@@ -59,6 +59,19 @@ def apiUpload():
             "error": {
                 "code": 400,
                 "message": "image file or key is not given"
+            }}
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=400,
+            mimetype='application/json')
+        return response
+    
+    if (not allowed_file(image_file.filename)):
+        data = {
+            "success": "false",
+            "error": {
+                "code": 400,
+                "message": "File type is not supported"
             }}
         response = webapp.response_class(
             response=json.dumps(data),
@@ -168,9 +181,6 @@ def apiKey(key_value):
         if rows:
             path = rows[0][0]
             path = path.replace('\\', '/')
-            index = path.find('/')
-            path = path[index + 1:]
-            path = os.path.join('./../', path)
             base64_image = base64.b64encode(open(path, "rb").read()).decode('utf-8')
             dataSend = {"key": image_key, "image": base64_image}
             res= requests.post('http://localhost:5001/PUT', json=dataSend)

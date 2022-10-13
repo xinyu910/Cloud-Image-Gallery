@@ -1,24 +1,23 @@
-# coding:utf-8
-
 from flask import Flask, render_template, request, redirect, url_for, make_response, jsonify, g
-from werkzeug.utils import secure_filename
 import os
 import datetime
 from datetime import timedelta
 import base64
-#from memcache_stat import Stats, SingleStat, eachState, cacheTotalState
-from Memcache import webapp as app, memcache
+from Memcache import webapp, memcache
 import sys
 import random
 import mysql.connector
 from Memcache.config import db_config
+from Memcache.memcache_stat import Stats
 
-app.app_context().push()
+import json
+import time
 
+"""///////////////////////////////////INIT////////////////////////////////////////"""
 # config from the db
-# 设置允许的文件格式
-ALLOWED_EXTENSIONS = set(['png', 'jpg', 'JPG', 'PNG', 'bmp'])
 global memcacheConfig
+global cacheState
+cacheState = Stats() #currently testing, use cacheState.hit cacheState.miss for hit/miss rate
 
 def connect_to_database():
     return mysql.connector.connect(user=db_config['user'],
@@ -26,15 +25,13 @@ def connect_to_database():
                                    host=db_config['host'],
                                    database=db_config['database'])
 
-
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
         db = g._database = connect_to_database()
     return db
 
-
-@app.teardown_appcontext
+@webapp.teardown_appcontext
 def teardown_db(exception):
     db = getattr(g, '_database', None)
     if db is not None:
@@ -44,27 +41,17 @@ def get_config():
     cnx = get_db()
     cursor = cnx.cursor()
     query = '''SELECT capacity, policy
-                    FROM configurations WHERE config_id = 1;
-                '''
+                    FROM configurations WHERE config_id = 1;'''
+                    
     cursor.execute(query)
     rows = cursor.fetchall()
     cnx.close()
     return {'capacity': rows[0][0], 'policy': rows[0][1]}
 
 
-memcacheConfig = get_config()
+with webapp.app_context():
+    memcacheConfig = get_config()
 
-"""///////////////////////////////////FOR PUT METHOD///////////////////////////////////"""
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
-
-
-def saveDict(key, image_Binary):   
-    #image_Binary = f.read()
-    """imageBase64Encode = base64.b64encode(image_Binary).decode('utf-8')
-    memcache[key] = {'content': imageBase64Encode, 'time': datetime.datetime.now()}
-    """
-    memcache[key] = {'content': image_Binary, 'time': datetime.datetime.now()}
 
 """///////////////////////////////////FOR DELET METHOD///////////////////////////////////"""
 
@@ -89,11 +76,14 @@ def capacitySum():
 """"//////////////////////////////////invalidatekey////////////////////////////////////////"""
 
 #   delete same key
-def invalidatekey(user_input):
-    if memcache.has_key(user_input):
+def subinvalidatekey(user_input):
+    # request+1
+    cacheState.reqServed_num += 1
+
+    if user_input in memcache:
         memcache.delete(user_input)
     data = {"success": "true"}
-    response = app.response_class(
+    response = webapp.response_class(
         response=json.dumps(data),
         status=200,
         mimetype='application/json'
@@ -120,16 +110,28 @@ def dictRandom():
 
 
 def fitCapacity(currentSize):
-    while((currentSize) > memcacheConfig['capacity']):
+    while((currentSize) > memcacheConfig['capacity'] and bool(memcache)):
         #capacity full
         print("Error: Larger than capacity, remove one")
         if (memcacheConfig['capacity'] == "LRU"):
             dictLRU()
         else:
             dictRandom()
+"""////////////////////////////////////////STAT//////////////////////////////////////////"""
+def changeStat():
+    pass
 
 
-def PUT(user_input, image_file):
+'''
+while True:
+    time.sleep(5)
+    print("write stat to db")
+'''
+    
+
+
+"""/////////////////////////////////////////OUTER////////////////////////////////////////"""
+def subPUT(key, value):
     """
     :param user_input: key
     :param imagename: name of the image
@@ -141,64 +143,97 @@ def PUT(user_input, image_file):
                 }
     """
     """file type error"""
-    if not (f and allowed_file(image_file.filename)):
+    # request+1
+    cacheState.reqServed_num += 1
+
+    if not (value):
         data = {"success": "false",
                 "error": {
                     "code": 400,
-                    "message": "Error: wrong file type, expecting png, jpg, JPG, PNG, bmp"
+                    "message": "Error: unsupported file type"
                 }}
-        response = app.response_class(
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=400,
+            mimetype='application/json'
+            )
+        return response
+    image_size = sys.getsizeof(value)/1048576
+    if (image_size > memcacheConfig['capacity']):
+        data = {"success": "false",
+                "error": {
+                    "code": 400,
+                    "message": "Error: file size exceed capacity"
+                }}
+        response = webapp.response_class(
             response=json.dumps(data),
             status=400,
             mimetype='application/json'
             )
         return response
 
-    invalidatekey(user_input)# remove 
-    fitCapacity(capacitySum() + (sys.getsizeof(image_file)/1048576))#fit capacity 字典满了
-    saveDict(user_input, image_file)# add
+    subinvalidatekey(key)# remove 
+    fitCapacity(capacitySum() + (sys.getsizeof(value)/1048576) + sys.getsizeof(key))#fit capacity 
+    # add
+    memcache[key] = {'content': value, 'time': datetime.datetime.now()}
     data = {"success": "true"}
-    response = app.response_class(
+    response = webapp.response_class(
         response=json.dumps(data),
         status=200,
         mimetype='application/json'
     )
+    print(memcache[key]['time'])
+    
     return response
 
 
-def GET(user_input):
-    if user_input not in memcache.keys():
+def subGET(key):
+    # request+1
+    cacheState.reqServed_num += 1
+
+    print(len(memcache))
+    if key not in memcache.keys():
         data = {"success": "false",
             "error": {
                 "code": 404,
                 "message": "Unknown Key"
             }}
-        response = app.response_class(
+        response = webapp.response_class(
             response=json.dumps(data),
             status=404,
             mimetype='application/json'
             )
+
+        # miss
+        cacheState.listOfStat.append("miss")  
+        cacheState.listOfTime.append(datetime.datetime.now())
         return response
     else:
         #timestemp update
-        memcache[user_input]['time'] = datetime.datetime.now()
+        memcache[key]['time'] = datetime.datetime.now()
         data = {
             "success": "true",
-            "content": memcache[user_input]['content']
+            "content": memcache[key]['content']
         }
-        response = app.response_class(
+        print("found")
+        response = webapp.response_class(
             response=json.dumps(data),
             status=200,
             mimetype='application/json'
         )
+        # hit
+        cacheState.listOfStat.append("hit")  
+        cacheState.listOfTime.append(datetime.datetime.now())
         return response
 
 
-#   没试过
-def CLEAR():
+def subCLEAR():
+    # request+1
+    cacheState.reqServed_num += 1
+
     clearCache()
     data = {"success": "true"}
-    response = app.response_class(
+    response = webapp.response_class(
         response=json.dumps(data),
         status=200,
         mimetype='application/json'
@@ -210,5 +245,26 @@ def refreshConfiguration():
     pass
 
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
+@webapp.route('/', methods=['POST', 'GET'])
+def welcome():
+    return "welcome"
+
+
+@webapp.route('/invalidateKey', methods=['POST'])
+def invalidateKey():
+    key = request.json["key"]
+    return subinvalidatekey(key)
+
+
+@webapp.route('/GET', methods=['POST', 'GET'])
+def GET():
+    key = request.json["key"]
+    return subGET(key)
+
+
+@webapp.route('/PUT', methods=['POST'])
+def PUT():
+    key = request.json["key"]
+    image = request.json["image"]
+    return subPUT(key, image)
+

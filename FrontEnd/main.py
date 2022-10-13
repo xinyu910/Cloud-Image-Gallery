@@ -8,8 +8,11 @@ import requests
 from FrontEnd import webapp
 from FrontEnd.config import db_config
 
-UPLOAD_FOLDER = 'FrontEnd/static/images'
+UPLOAD_FOLDER = './static/images'
 webapp.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+ALLOWED_EXTENSIONS = set(['.jpg', '.jpeg', '.png', '.tiff', '.gif', '.tif', '.bmp',
+                '.raw', '.cr2', '.nef', '.orf', '.sr2', '.psd', '.xcf', '.ai', 'cdr'])
+
 
 
 def connect_to_database():
@@ -24,6 +27,10 @@ def get_db():
     if db is None:
         db = g._database = connect_to_database()
     return db
+
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
 
 @webapp.teardown_appcontext
@@ -86,6 +93,7 @@ def key():
     dataSend = {"key": image_key}
     res= requests.post('http://localhost:5001/GET', json=dataSend)
     if (res.status_code == 200):
+        print("render from cache")
         return render_template('show_image.html', key=image_key, image=res.text["content"])
     else:
         # if not in cache, get from database and call put in memcache
@@ -102,9 +110,6 @@ def key():
         if rows:
             path = rows[0][0]
             path = path.replace('\\', '/')
-            index = path.find('/')
-            path = path[index + 1:]
-            path = os.path.join('./../', path)
             base64_image = base64.b64encode(open(path, "rb").read()).decode('utf-8')
             dataSend = {"key": image_key, "image": base64_image}
             res= requests.post('http://localhost:5001/PUT', json=dataSend)
@@ -164,6 +169,9 @@ def upload():
     if image_file.filename == '' or image_key == '':
         return redirect(url_for('failure', msg="No image file or key given or they are not given through form"))
 
+    if (not allowed_file(image_file.filename)):
+        return redirect(url_for('failure', msg="Image file type not supported"))
+
     # invalidate key in memcache
     dataSend = {"key": image_key}
     res= requests.post('http://localhost:5001/invalidateKey', json=dataSend)
@@ -214,4 +222,4 @@ def upload():
     return redirect(url_for('success', msg="Image Successfully Uploaded"))
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    webapp.run(host='0.0.0.0', port=5000, debug=True)

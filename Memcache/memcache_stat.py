@@ -1,19 +1,13 @@
 import datetime
-#The mem-cache should store its statistics every 5 seconds
-global eachState
-global cacheTotalState
 
-class SingleStat:
-    """
-    Class for each single state
-    includes a time stamp and an action
-    """
+import mysql.connector
+from Memcache.config import db_config
 
-    def __init__(self):
-        self.type = "" #    hit or miss
-        self.time = "" #    timestemp
-        
 
+# The mem-cache should store its statistics every 5 seconds
+                                   
+"""/////////////////////////////STAT CLASS////////////////////////////////////"""
+# use list
 class Stats:
     """
     class for memcache statistics
@@ -23,38 +17,36 @@ class Stats:
     hit rate = hit / hit+miss
     miss rante = miss / hit+miss
     """
+
     def __init__(self):
-        self.statList = [] # list of SignleState
-        self.totalSize = 0
-        self.reqServed_num = 0
-    
 
-    def AddList(self, oneState):
-        self.statList.append(oneState)
+        self.reqServed_num = 0  # total request number to be added during run time
+        self.miss = 0
+        self.hit = 0
 
+        """////no out////"""
+        self.listOfStat = []  # stats to be append during run time
+        self.listOfTime = []  # time stemp to be append during run time
 
-    def StatList(self):
+    def countStat(self):
         """
         Add states within 10 min in to a list
         """
+        miss = 0
+        hit = 0
         currentTime = datetime.datetime.now()
-        diffTime = currentTime - datetime.timedelta(minutes=10)  # 10 minutes
+        diffTime = currentTime - datetime.timedelta(minutes=10)  # 1 minutes before
 
-        for stat in self.list:
-            if currentTime >= stat.timestamp and diffTime <= stat.timestamp:
-                if stat.action == "miss":
-                    miss = miss+1
-                    total = total + 1
-                if stat.action == "hit":
-                    hit = hit+1
-                    total = total + 1
+        for index in range(len(self.listOfTime)):
+            time = self.listOfTime[index]
+            if currentTime >= time >= diffTime:  # why current time>=time wtf
+                print(index)
+                if self.listOfStat[index] == "miss":
+                    print("a miss")
+                    miss += 1
+                else:
+                    print("a hit")
+                    hit += 1
 
-
-    def Rate_Calc(self):
-        """
-        calculate hit and miss rate with the statlist
-        """
-
-eachState = SingleStat()
-cacheTotalState = Stats()
- 
+        self.miss = miss
+        self.hit = hit
