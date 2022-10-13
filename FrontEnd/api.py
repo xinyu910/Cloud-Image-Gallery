@@ -1,10 +1,11 @@
 import base64
 from flask import render_template, url_for, request, g
-from FrontEnd import webapp, key_image
+from FrontEnd import webapp
 from flask import json
 from FrontEnd.main import get_db, allowed_file
 import os
 from werkzeug.utils import secure_filename
+import requests
 
 
 @webapp.route('/api/list_keys', methods=['POST'])
@@ -40,7 +41,6 @@ def list_keys():
             status=500,
             mimetype='application/json')
         return response
-        
 
 
 @webapp.route('/api/upload', methods=['POST'])
@@ -65,8 +65,8 @@ def apiUpload():
             status=400,
             mimetype='application/json')
         return response
-    
-    if (not allowed_file(image_file.filename)):
+
+    if not allowed_file(image_file.filename):
         data = {
             "success": "false",
             "error": {
@@ -76,22 +76,6 @@ def apiUpload():
         response = webapp.response_class(
             response=json.dumps(data),
             status=400,
-            mimetype='application/json')
-        return response
-
-    # invalidate key in memcache
-    dataSend = {"key": image_key}
-    res= requests.post('http://localhost:5001/invalidateKey', json=dataSend)
-    if (res.status_code != 200):
-        data = {
-            "success": "false",
-            "error": {
-                "code": 500,
-                "message": "Invalidate key error"
-            }}
-        response = webapp.response_class(
-            response=json.dumps(data),
-            status=500,
             mimetype='application/json')
         return response
 
@@ -125,11 +109,11 @@ def apiUpload():
         count = 1
         if os.path.isfile(filename):
             index = filename.rfind(".")
-            filename = filename[:index]+str(count)+filename[index:]
+            filename = filename[:index] + str(count) + filename[index:]
         while os.path.isfile(filename):
-            count = count+1
+            count = count + 1
             index = filename.rfind(".")
-            filename = filename[:index-1] + str(count) + filename[index:]
+            filename = filename[:index - 1] + str(count) + filename[index:]
         image_file.save(filename)
         query = ''' INSERT INTO images (image_id, image_path) VALUES (%s,%s)'''
         cursor.execute(query, (image_key, filename))
@@ -148,7 +132,7 @@ def apiUpload():
     return response
 
 
-@webapp.route('/api/key/<string: key_value>', methods=['POST'])
+@webapp.route('/api/key/<string:key_value>', methods=['POST'])
 def apiKey(key_value):
     image_key = key_value
     if image_key == '':
@@ -163,12 +147,14 @@ def apiKey(key_value):
             status=400,
             mimetype='application/json')
         return response
-    
-    dataSend = {"key": image_key}
-    res= requests.post('http://localhost:5001/GET', json=dataSend)
-    if (res.status_code != 200):
-        return render_template('show_image.html', key=image_key, image="data:image/png;base64, " + res["content"])
+
+        # find in memcache
+        dataSend = {"key": image_key}
+        res = requests.post('http://localhost:5001/GET', json=dataSend)
+        if res.status_code == 200:
+            return render_template('show_image.html', key=image_key, image=res.json()['content'])
     else:
+        # if not in cache, get from database and call put in memcache
         cnx = get_db()
         cursor = cnx.cursor()
 
@@ -177,19 +163,20 @@ def apiKey(key_value):
 
         cursor.execute(has_key, (image_key,))
         rows = cursor.fetchall()
+        cnx.close()
 
         if rows:
             path = rows[0][0]
             path = path.replace('\\', '/')
             base64_image = base64.b64encode(open(path, "rb").read()).decode('utf-8')
             dataSend = {"key": image_key, "image": base64_image}
-            res= requests.post('http://localhost:5001/PUT', json=dataSend)
-            if(res.status_code != 200):
+            res = requests.post('http://localhost:5001/PUT', json=dataSend)
+            if res.status_code != 200:
                 data = {
-                "success": "false",
-                "error": {
-                    "code": 500,
-                    "message": "Internal Error, memcache put error"
+                    "success": "false",
+                    "error": {
+                        "code": 500,
+                        "message": "Internal Error, memcache put error"
                     }}
                 response = webapp.response_class(
                     response=json.dumps(data),
@@ -212,7 +199,7 @@ def apiKey(key_value):
                 "error": {
                     "code": 404,
                     "message": "Unknown key"
-                    }}
+                }}
             response = webapp.response_class(
                 response=json.dumps(data),
                 status=404,
@@ -220,6 +207,3 @@ def apiKey(key_value):
             )
 
         return response
-
-
-

@@ -7,35 +7,46 @@
 <html>
     <body>
     {% include "nav_bar.html" %}
-        <div class="formContainer">
+        <div class="formContainer" style="height: 64vmin; width: 70vmin" id="config">
             <form action="{{ url_for('update_config')}}" method="post">
-                <label for="capacity" class="form-label">Capacity in MB</label>
-                <input type="number" name="capacity" id="capacity" class="form-control" value="{{ capacity }}" required/>
+                <label for="policy" class="radio control-label">Policy</label>
+                <div class="form-check">
+                    {% if policy == "Random Replacement" %}
+                        <input class="form-check-input" type="radio" name="policy" id="RR" value = "Random Replacement" checked>
+                    {% else %}
+                        <input class="form-check-input" type="radio" name="policy" id="RR" value = "Random Replacement">
+                    {% endif %}
+                    <label class="form-check-label" for="RR">
+                        Random Replacement
+                    </label>
+                </div>
+                <div class="form-check">
+                    {% if policy == "Least Recently Used"%}
+                        <input class="form-check-input" type="radio" name="policy" id="LRU" value = "Least Recently Used" checked>
+                    {% else %}
+                        <input class="form-check-input" type="radio" name="policy" id="LRU" value = "Least Recently Used">
+                    {% endif %}
+                    <label class="form-check-label" for="LRU">
+                        Least Recently Used
+                    </label>
+                </div>
                 <div id ="upload">
-                    <label for="policy" class="radio control-label">Policy</label>
+                    <label for="clear" class="radio control-label">Clear Cache</label>
                     <div class="form-check">
-                        {% if policy == "Random Replacement" %}
-                            <input class="form-check-input" type="radio" name="policy" id="RR" value = "Random Replacement" checked>
-                        {% else %}
-                            <input class="form-check-input" type="radio" name="policy" id="RR" value = "Random Replacement">
-                        {% endif %}
-                        <label class="form-check-label" for="RR">
-                            Random Replacement
-                        </label>
+                        <input class="form-check-input" type="radio" name="clear" id="Yes" value = "Yes" checked>
+                        <label class="form-check-label" for="Yes"> Yes </label>
                     </div>
                     <div class="form-check">
-                        {% if policy == "Least Recently Used"%}
-                            <input class="form-check-input" type="radio" name="policy" id="LRU" value = "Least Recently Used" checked>
-                        {% else %}
-                            <input class="form-check-input" type="radio" name="policy" id="LRU" value = "Least Recently Used">
-                        {% endif %}
-                        <label class="form-check-label" for="LRU">
-                            Least Recently Used
-                        </label>
+                        <input class="form-check-input" type="radio" name="clear" id="No" value = "No">
+                        <label class="form-check-label" for="No">No</label>
                     </div>
                 </div>
+                <div id ="upload">
+                    <label for="capacity" class="form-label">Capacity in MB</label>
+                    <input type="number" name="capacity" id="capacity" class="form-control" value="{{ capacity }}" required/>
+                </div>
                 <div style="text-align: center">
-                    <button type="submit" value="submit" class="form-button" style="background-color: #C68B4F">Submit Change</button>
+                    <button type="submit" value="submit" class="form-button" style="background-color: #8F9385">Submit Change</button>
                 </div>
             </form>
         </div>

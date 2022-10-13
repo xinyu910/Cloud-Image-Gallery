@@ -139,13 +139,13 @@ button:hover {
     color: #FFFFFF;
     cursor: pointer;
     box-shadow: 0 0.8vmin 1vmin rgba(0, 0, 0, 0.2);
-    margin: 3.8vmin 0 auto auto;
+    margin: 3vmin 0 auto auto;
     background-color: #819FA6;
     text-align: center;
 }
 
 #upload {
-    margin-top: 1.5vmin;
+    margin-top: 1.8vmin;
 }
 
 .message {
@@ -167,13 +167,15 @@ button:hover {
 }
 
 table {
-    background-color: #A0A396;
+    background-color: #DAD4CB;
     opacity: 0.9;
 }
 
 thead {
-    background-color: #908E89;
-    opacity: 0.9;
+    background-color: #A0A396;
+    opacity: 0.8;
+    color: #3D4A55;
+    font-size: 2.8vmin;
 }
 
 .table_container {
@@ -181,4 +183,8 @@ thead {
     justify-content:center;
     align-items:center;
     margin-top: 10vh;
+}
+
+#config {
+    font-size: 2.8vmin;
 }

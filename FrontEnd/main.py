@@ -10,9 +10,8 @@ from FrontEnd.config import db_config
 
 UPLOAD_FOLDER = './static/images'
 webapp.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-ALLOWED_EXTENSIONS = set(['.jpg', '.jpeg', '.png', '.tiff', '.gif', '.tif', '.bmp',
-                '.raw', '.cr2', '.nef', '.orf', '.sr2', '.psd', '.xcf', '.ai', 'cdr'])
-
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tiff', '.gif', '.tif', '.bmp', '.raw', '.cr2', '.nef', '.orf', '.sr2',
+                      '.psd', '.xcf', '.ai', 'cdr'}
 
 
 def connect_to_database():
@@ -30,7 +29,7 @@ def get_db():
 
 
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
+    return '.' in filename and ('.' + filename.rsplit('.', 1)[1]) in ALLOWED_EXTENSIONS
 
 
 @webapp.teardown_appcontext
@@ -63,7 +62,6 @@ def failure():
 @webapp.route('/listKeys', methods=['GET'])
 def listKeys():
     """Display the html page that shows all the keys in the database"""
-
     cnx = get_db()
     cursor = cnx.cursor()
     query = '''SELECT image_id, image_path
@@ -72,8 +70,17 @@ def listKeys():
     cursor.execute(query)
     rows = cursor.fetchall()
     cnx.close()
-
+    # does not call api post endpoint because we also want to show the file path on the html page.
+    '''
+        res = requests.post('http://localhost:5000/api//list_keys')
+        if res.status_code == 200:
+            print(res.json()['keys'])
+            return render_template("key_list.html", cursor=res.json()['keys'])
+        else:
+            return redirect(url_for('failure', msg=res.json()['error']['message']))
+    '''
     return render_template("key_list.html", cursor=rows)
+
 
 
 @webapp.route('/retrieve_key_form', methods=['GET'])
@@ -84,17 +91,17 @@ def retrieve_key_form():
 
 @webapp.route('/key', methods=['POST'])
 def key():
+    """Display the image user browsed by key"""
     image_key = request.form.get('key')
 
     if image_key == '':
         return redirect(url_for('failure', msg="Key is not given or not given from form"))
-    
-    # find in memcache
+
+    # find if this key image pair is in memcache, if so, retrieve and render it directly from cache.
     dataSend = {"key": image_key}
-    res= requests.post('http://localhost:5001/GET', json=dataSend)
-    if (res.status_code == 200):
-        print("render from cache")
-        return render_template('show_image.html', key=image_key, image=res.text["content"])
+    res = requests.post('http://localhost:5001/GET', json=dataSend)
+    if res.status_code == 200:
+        return render_template('show_image.html', key=image_key, image=res.json()['content'])
     else:
         # if not in cache, get from database and call put in memcache
         cnx = get_db()
@@ -112,11 +119,10 @@ def key():
             path = path.replace('\\', '/')
             base64_image = base64.b64encode(open(path, "rb").read()).decode('utf-8')
             dataSend = {"key": image_key, "image": base64_image}
-            res= requests.post('http://localhost:5001/PUT', json=dataSend)
+            requests.post('http://localhost:5001/PUT', json=dataSend)
             return render_template('show_image.html', key=image_key, image=base64_image)
         else:
             return redirect(url_for('failure', msg="Unknown Key"))
-
 
 
 @webapp.route('/statistics', methods=['GET'])
@@ -140,6 +146,8 @@ def config():
 def update_config():
     capacity_result = int(request.form.get('capacity'))
     policy_result = request.form.get('policy')
+    clear_result = request.form.get('clear')
+
     cnx = get_db()
     cursor = cnx.cursor()
 
@@ -147,7 +155,12 @@ def update_config():
                    (capacity_result, policy_result))
     cnx.commit()
     cnx.close()
-    return redirect(url_for('success', msg="Configuration changed successfully"))
+    dataSend = {"clear": clear_result}
+    res = requests.post('http://localhost:5001/refreshConfiguration', json=dataSend)
+    if res.status_code == 200:
+        return redirect(url_for('success', msg="Configuration changed successfully"))
+    else:
+        return redirect(url_for('failure', msg="Memcache configuration error"))
 
 
 @webapp.route('/upload_form', methods=['GET'])
@@ -169,15 +182,8 @@ def upload():
     if image_file.filename == '' or image_key == '':
         return redirect(url_for('failure', msg="No image file or key given or they are not given through form"))
 
-    if (not allowed_file(image_file.filename)):
+    if not allowed_file(image_file.filename):
         return redirect(url_for('failure', msg="Image file type not supported"))
-
-    # invalidate key in memcache
-    dataSend = {"key": image_key}
-    res= requests.post('http://localhost:5001/invalidateKey', json=dataSend)
-    
-    if (res.status_code != 200):
-       return redirect(url_for('failure', msg="Invalidate key error"))
 
     cnx = get_db()
     cursor = cnx.cursor()
@@ -220,6 +226,7 @@ def upload():
     cnx.close()
 
     return redirect(url_for('success', msg="Image Successfully Uploaded"))
+
 
 if __name__ == '__main__':
     webapp.run(host='0.0.0.0', port=5000, debug=True)

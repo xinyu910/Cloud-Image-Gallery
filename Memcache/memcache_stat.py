@@ -1,9 +1,5 @@
 import datetime
 
-import mysql.connector
-from Memcache.config import db_config
-
-
 # The mem-cache should store its statistics every 5 seconds
                                    
 """/////////////////////////////STAT CLASS////////////////////////////////////"""
@@ -15,7 +11,7 @@ class Stats:
     miss = missing times on GET
     hit = hitting times on GET
     hit rate = hit / hit+miss
-    miss rante = miss / hit+miss
+    miss rate = miss / hit+miss
     """
 
     def __init__(self):
@@ -25,8 +21,8 @@ class Stats:
         self.hit = 0
 
         """////no out////"""
-        self.listOfStat = []  # stats to be append during run time
-        self.listOfTime = []  # time stemp to be append during run time
+        self.listOfStat = []  # stats to be appended during run time
+        self.listOfTime = []  # time stamp to be appended during run time
 
     def countStat(self):
         """
