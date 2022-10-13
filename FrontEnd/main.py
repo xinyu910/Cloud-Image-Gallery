@@ -72,7 +72,7 @@ def listKeys():
     cnx.close()
     # does not call api post endpoint because we also want to show the file path on the html page.
     '''
-        res = requests.post('http://localhost:5000/api//list_keys')
+        res = requests.post('http://localhost:5000/api/list_keys')
         if res.status_code == 200:
             print(res.json()['keys'])
             return render_template("key_list.html", cursor=res.json()['keys'])
@@ -80,7 +80,6 @@ def listKeys():
             return redirect(url_for('failure', msg=res.json()['error']['message']))
     '''
     return render_template("key_list.html", cursor=rows)
-
 
 
 @webapp.route('/retrieve_key_form', methods=['GET'])
@@ -108,7 +107,7 @@ def key():
         cursor = cnx.cursor()
 
         # check if database has the key or not
-        has_key = ''' SELECT image_path FROM images WHERE image_id = %s'''
+        has_key = "SELECT image_path FROM images WHERE image_id = %s"
 
         cursor.execute(has_key, (image_key,))
         rows = cursor.fetchall()

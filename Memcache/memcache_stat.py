@@ -7,9 +7,9 @@ import datetime
 class Stats:
     """
     class for memcache statistics
-    number of requests(for calling all 5 operations)
-    miss = missing times on GET
-    hit = hitting times on GET
+    number of requests(for calling all 5 operations): reqServed_num
+    miss = missing times on GET: missCount
+    hit = hitting times on GET: hitCount
     hit rate = hit / hit+miss
     miss rate = miss / hit+miss
     """
@@ -17,12 +17,11 @@ class Stats:
     def __init__(self):
 
         self.reqServed_num = 0  # total request number to be added during run time
-        self.miss = 0
-        self.hit = 0
+        self.missCount = 0
+        self.hitCount = 0
 
         """////no out////"""
-        self.listOfStat = []  # stats to be appended during run time
-        self.listOfTime = []  # time stamp to be appended during run time
+        self.listOfStat = []  # list of tuple in the format (miss or hit str, timestamp)
 
     def countStat(self):
         """
@@ -31,18 +30,17 @@ class Stats:
         miss = 0
         hit = 0
         currentTime = datetime.datetime.now()
-        diffTime = currentTime - datetime.timedelta(minutes=10)  # 1 minutes before
+        diffTime = currentTime - datetime.timedelta(minutes=10)  # 10 minutes before
 
-        for index in range(len(self.listOfTime)):
-            time = self.listOfTime[index]
-            if currentTime >= time >= diffTime:  # why current time>=time wtf
-                print(index)
-                if self.listOfStat[index] == "miss":
-                    print("a miss")
+        for index in range(len(self.listOfStat)):
+            time = self.listOfStat[index][1]
+            if time >= diffTime:  # why current time>=time wtf
+                if self.listOfStat[index][0] == "miss":
                     miss += 1
                 else:
-                    print("a hit")
                     hit += 1
+            else:
+                del self.listOfStat[index]
 
-        self.miss = miss
-        self.hit = hit
+        self.missCount = miss
+        self.hitCount = hit

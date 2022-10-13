@@ -1,8 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, make_response, jsonify, g
-import os
 import datetime
 from datetime import timedelta
-import base64
 from Memcache import webapp, memcache
 import sys
 import random
@@ -55,6 +53,7 @@ def get_config():
     global memcacheConfig
     memcacheConfig = {'capacity': rows[0][0], 'policy': rows[0][1]}
 
+
 def refresh_stat():
     """
     TABLE statistics(id int NOT NULL AUTO_INCREMENT,
@@ -65,10 +64,6 @@ def refresh_stat():
                         hitRate DECIMAL NOT NULL,
                         PRIMARY KEY (id));
     """
-    cnx = get_db()
-    cursor = cnx.cursor()
-    query = '''INSERT INTO statistics (numOfItem, totalSize, numOfRequests, 
-                            missRate, hitRate ) VALUES (%s,%s,%s,%s,%s)'''
     numOfItem = len(memcache.keys())
     totalSize = cacheState.hit + cacheState.miss
     numOfRequests = cacheState.reqServed_num
@@ -79,7 +74,10 @@ def refresh_stat():
     else:
         missRate = cacheState.miss / totalSize
         hitRate = cacheState.hit / totalSize
-
+    cnx = get_db()
+    cursor = cnx.cursor()
+    query = '''INSERT INTO statistics (numOfItem, totalSize, numOfRequests, 
+                            missRate, hitRate ) VALUES (%s,%s,%s,%s,%s)'''
     cursor.execute(query, (numOfItem, totalSize, numOfRequests, missRate, hitRate))
 
     rows = cursor.fetchall()
@@ -91,20 +89,14 @@ with webapp.app_context():
     get_config()
 
 
-"""/////////////////////////////////////CAPACITY CALC/////////////////////////////////////"""
-
-
 def capacitySum():
     """get the capacity of the dict"""
     sizeMB = sys.getsizeof(memcache) / 1048576
     return sys.getsizeof(memcache)
 
 
-""""//////////////////////////////////invalidatekey////////////////////////////////////////"""
-
-
-#   delete same key
 def subinvalidatekey(key):
+    """invalidatekey in memcache when needed"""
     # request+1
     cacheState.reqServed_num += 1
 
@@ -119,20 +111,22 @@ def subinvalidatekey(key):
     return response
 
 
-"""/////////////////////////////////replacement policies/////////////////////////////////"""
+"""replacement policies"""
 
 
 def dictLRU():
+    """LRU: remove the oldest key in memcache"""
     OldTimeStamp = min([d['time'] for d in memcache.values()])
-    LRU = ""
+    oldestKey = ""
     for key in memcache.keys():
-        if memcache[key]['timestamp'] == OldTimeStamp:
+        if memcache[key]['time'] == OldTimeStamp:
             oldestKey = key  # find oldest key
 
     memcache.delete(oldestKey)  # delete oldest key
 
 
 def dictRandom():
+    """Remove a key randomly"""
     keys = list(memcache.keys())
     keyIndex = random.randint(0, len(keys) - 1)
 
@@ -140,6 +134,7 @@ def dictRandom():
 
 
 def fitCapacity(currentSize):
+    """if the given size exceeded cache capacity, delete keys based on selected policy"""
     while (currentSize) > memcacheConfig['capacity'] and bool(memcache):
         # capacity full
         print("Error: Larger than capacity, remove one")
@@ -170,9 +165,6 @@ with webapp.app_context():
     thread = Thread(target=caller, args=(changeStat,))
     thread.start()  # start refreshing
 '''
-
-"""/////////////////////////////////////////OUTER////////////////////////////////////////"""
-
 
 def subPUT(key, value):
     """
@@ -215,9 +207,9 @@ def subPUT(key, value):
         )
         return response
 
-    subinvalidatekey(key)  # remove
+    subinvalidatekey(key)  # remove key if the key is already in the cache
     fitCapacity(capacitySum() + (sys.getsizeof(value) / 1048576) + sys.getsizeof(key))  # fit capacity
-    # add
+    # add the key image pair in the cache
     memcache[key] = {'content': value, 'time': datetime.datetime.now()}
     data = {"success": "true"}
     response = webapp.response_class(
@@ -225,8 +217,6 @@ def subPUT(key, value):
         status=200,
         mimetype='application/json'
     )
-    print(memcache[key]['time'])
-
     return response
 
 
@@ -234,7 +224,6 @@ def subGET(key):
     # request+1
     cacheState.reqServed_num += 1
 
-    print(len(memcache))
     if key not in memcache.keys():
         data = {"success": "false",
                 "error": {
@@ -248,25 +237,22 @@ def subGET(key):
         )
 
         # miss
-        cacheState.listOfStat.append("miss")
-        cacheState.listOfTime.append(datetime.datetime.now())
+        cacheState.listOfStat.append(("miss", datetime.datetime.now()))
         return response
     else:
-        # timestemp update
+        # timestamp update
         memcache[key]['time'] = datetime.datetime.now()
         data = {
             "success": "true",
             "content": memcache[key]['content']
         }
-        print("found")
         response = webapp.response_class(
             response=json.dumps(data),
             status=200,
             mimetype='application/json'
         )
         # hit
-        cacheState.listOfStat.append("hit")
-        cacheState.listOfTime.append(datetime.datetime.now())
+        cacheState.listOfStat.append(("hit", datetime.datetime.now()))
         return response
 
 
@@ -281,7 +267,6 @@ def subCLEAR():
         mimetype='application/json'
     )
     return response
-
 
 
 @webapp.route('/', methods=['POST', 'GET'])
@@ -310,6 +295,8 @@ def PUT():
 
 @webapp.route('/refreshConfiguration', methods=['POST'])
 def refreshConfiguration():
+    #request+1
+    cacheState.reqServed_num += 1
     clear_result = request.json('clear')
     get_config()
     # clear cache if needed or change memcache based on new capacity (reduce memcache if new capacity is smaller)
@@ -317,7 +304,6 @@ def refreshConfiguration():
         subCLEAR()
     else:
         fitCapacity(capacitySum())
-    cacheState.reqServed_num += 1
     data = {"success": "true"}
     response = webapp.response_class(
         response=json.dumps(data),
@@ -325,4 +311,3 @@ def refreshConfiguration():
         mimetype='application/json'
     )
     return response
-

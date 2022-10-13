@@ -84,9 +84,9 @@ def apiUpload():
 
     # check if database has the key or not
     has_key = ''' SELECT image_path FROM images WHERE image_id = %s'''
-
     cursor.execute(has_key, (image_key,))
 
+    # path to save the image
     folder = webapp.config['UPLOAD_FOLDER']
     if not os.path.isdir(folder):
         os.mkdir(folder)
@@ -104,6 +104,7 @@ def apiUpload():
         query = '''UPDATE images SET image_path = %s WHERE image_id = %s'''
         cursor.execute(query, (filename, image_key))
         cnx.commit()
+    # if database doesn't have the key, insert key, image pair into it.
     else:
         # if duplicate file name found, add number after
         count = 1
@@ -133,7 +134,7 @@ def apiUpload():
 
 
 @webapp.route('/api/key/<string:key_value>', methods=['POST'])
-def apiKey(key_value):
+def apikey(key_value):
     image_key = key_value
     if image_key == '':
         data = {
@@ -149,10 +150,10 @@ def apiKey(key_value):
         return response
 
         # find in memcache
-        dataSend = {"key": image_key}
-        res = requests.post('http://localhost:5001/GET', json=dataSend)
-        if res.status_code == 200:
-            return render_template('show_image.html', key=image_key, image=res.json()['content'])
+    dataSend = {"key": image_key}
+    res = requests.post('http://localhost:5001/GET', json=dataSend)
+    if res.status_code == 200:
+        return render_template('show_image.html', key=image_key, image=res.json()['content'])
     else:
         # if not in cache, get from database and call put in memcache
         cnx = get_db()
