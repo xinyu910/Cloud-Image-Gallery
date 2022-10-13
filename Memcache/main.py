@@ -12,7 +12,9 @@ from Memcache.memcache_stat import Stats
 
 import json
 import time
-
+from time import sleep
+from threading import Thread
+#搜索注释????????是昨天写的内容非常不确定 
 """///////////////////////////////////INIT////////////////////////////////////////"""
 # config from the db
 global memcacheConfig
@@ -44,6 +46,38 @@ def get_config():
                     FROM configurations WHERE config_id = 1;'''
                     
     cursor.execute(query)
+    rows = cursor.fetchall()
+    cnx.close()
+    return {'capacity': rows[0][0], 'policy': rows[0][1]}
+#/////////////我真的不是很会SQL救救我?????????????????????????????????????
+def refresh_stat():
+    """
+    TABLE statistics(id int NOT NULL AUTO_INCREMENT,
+                        numOfItem int NOT NULL,
+                        totalSize int NOT NULL,
+                        numOfRequests int NOT NULL,
+                        missRate DECIMAL NOT NULL,
+                        hitRate DECIMAL NOT NULL,
+                        PRIMARY KEY (id));
+    """
+    cnx = get_db()
+    cursor = cnx.cursor()
+    query = '''INSERT INTO cache_stats (numOfItem, totalSize, numOfRequests, 
+                            missRate, hitRate ) VALUES (%d,%d,%d,%d,%d)'''
+    numOfItem = len(memcache.keys())
+    totalSize = cacheState.hit + cacheState.miss
+    numOfRequests = cacheState.reqServed_num
+    if ((cacheState.hit == 0) and (cacheState.miss == 0)):
+        missRate = 0
+        hitRate = 0
+        
+    else:
+        missRate = cacheState.miss/totalSize
+        hitRate = cacheState.hit/totalSize
+        
+    cursor.execute(query, (numOfItem, totalSize, numOfRequests, missRate, hitRate))  
+
+
     rows = cursor.fetchall()
     cnx.close()
     return {'capacity': rows[0][0], 'policy': rows[0][1]}
@@ -119,16 +153,19 @@ def fitCapacity(currentSize):
             dictRandom()
 """////////////////////////////////////////STAT//////////////////////////////////////////"""
 def changeStat():
-    pass
+    # ... write db here ...
+    cacheState.countStat()# calc stat
+    refresh_stat()# refresh database?????????????????????????????????????
+    print(cacheState.miss,"-",cacheState.hit)
 
+def caller(callback_func, first=True):
 
-'''
-while True:
-    time.sleep(5)
-    print("write stat to db")
-'''
-    
+    callback_func()
+    sleep(5)
+    caller(callback_func, False)
 
+thread = Thread(target=caller, args=(changeStat,))
+thread.start()# start refreshing
 
 """/////////////////////////////////////////OUTER////////////////////////////////////////"""
 def subPUT(key, value):
