@@ -14,7 +14,7 @@ def list_keys():
     try:
         cnx = get_db()
         cursor = cnx.cursor()
-        query = ''' SELECT image_id, image_path
+        query = ''' SELECT image_key, image_path
                         FROM images;
                     '''
         cursor.execute(query)
@@ -83,7 +83,7 @@ def apiUpload():
     cursor = cnx.cursor()
 
     # check if database has the key or not
-    has_key = ''' SELECT image_path FROM images WHERE image_id = %s'''
+    has_key = ''' SELECT image_path FROM images WHERE image_key = %s'''
     cursor.execute(has_key, (image_key,))
 
     # path to save the image
@@ -101,7 +101,7 @@ def apiUpload():
         path_to_delete = rows[0][0]
         if os.path.isfile(path_to_delete):
             os.remove(path_to_delete)
-        query = '''UPDATE images SET image_path = %s WHERE image_id = %s'''
+        query = '''UPDATE images SET image_path = %s WHERE image_key = %s'''
         cursor.execute(query, (filename, image_key))
         cnx.commit()
     # if database doesn't have the key, insert key, image pair into it.
@@ -116,12 +116,26 @@ def apiUpload():
             index = filename.rfind(".")
             filename = filename[:index - 1] + str(count) + filename[index:]
         image_file.save(filename)
-        query = ''' INSERT INTO images (image_id, image_path) VALUES (%s,%s)'''
+        query = ''' INSERT INTO images (image_key, image_path) VALUES (%s,%s)'''
         cursor.execute(query, (image_key, filename))
         cnx.commit()
 
     cnx.close()
-
+    # invalidate key in memcache
+    dataSend = {"key": image_key}
+    res = requests.post('http://localhost:5001/invalidateKey', json=dataSend)
+    if res.status_code != 200:
+        data = {
+            "success": "false",
+            "error": {
+                "code": 500,
+                "message": "Invalidate key error"
+            }}
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=500,
+            mimetype='application/json')
+        return response
     data = {
         "success": "true"
     }
@@ -133,7 +147,7 @@ def apiUpload():
     return response
 
 
-@webapp.route('/api/key/<string:key_value>', methods=['POST'])
+@webapp.route('/api/key/<string:key_value>', methods=['GET'])
 def apikey(key_value):
     image_key = key_value
     if image_key == '':
@@ -153,14 +167,23 @@ def apikey(key_value):
     dataSend = {"key": image_key}
     res = requests.post('http://localhost:5001/GET', json=dataSend)
     if res.status_code == 200:
-        return render_template('show_image.html', key=image_key, image=res.json()['content'])
+        data = {
+            "success": "true",
+            "content": res.json()['content']
+        }
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=200,
+            mimetype='application/json'
+        )
+        return response
     else:
         # if not in cache, get from database and call put in memcache
         cnx = get_db()
         cursor = cnx.cursor()
 
         # check if database has the key or not
-        has_key = ''' SELECT image_path FROM images WHERE image_id = %s'''
+        has_key = ''' SELECT image_path FROM images WHERE image_key = %s'''
 
         cursor.execute(has_key, (image_key,))
         rows = cursor.fetchall()

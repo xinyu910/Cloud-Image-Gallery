@@ -236,7 +236,11 @@ def upload():
         cnx.commit()
 
     cnx.close()
-
+    # invalidate key in memcache
+    dataSend = {"key": image_key}
+    res = requests.post('http://localhost:5001/invalidateKey', json=dataSend)
+    if res.status_code != 200:
+        return redirect(url_for('failure', msg="Invalidate key error"))
     return redirect(url_for('success', msg="Image Successfully Uploaded"))
 
 

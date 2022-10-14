@@ -1,18 +1,13 @@
 from flask import Flask, render_template, request, redirect, url_for, make_response, jsonify, g
 import datetime
-from datetime import timedelta
 from Memcache import webapp, memcache
 import sys
 import random
 import mysql.connector
 from Memcache.config import db_config
 from Memcache.memcache_stat import Stats
-#from apscheduler.schedulers.background import BackgroundScheduler
-
+from apscheduler.schedulers.background import BackgroundScheduler
 import json
-import time
-from time import sleep
-from threading import Thread
 
 '''INIT'''
 # config from the db
@@ -56,45 +51,35 @@ def get_config():
 
 
 def refresh_stat():
-    """
-    CREATE TABLE statistics(id int NOT NULL AUTO_INCREMENT,
-                        numOfItem int NOT NULL,
-                        totalSize int NOT NULL,
-                        numOfRequests int NOT NULL,
-                        missRate DECIMAL NOT NULL,
-                        hitRate DECIMAL NOT NULL,
-                        time_stamp DATETIME NOT NULL,
-                        PRIMARY KEY (id));
-    """
-    numOfItem = len(memcache.keys())
-    totalSize = cacheState.total_image_size
-    numOfRequests = cacheState.reqServed_num
-    if (cacheState.hitCount == 0) and (cacheState.missCount == 0):
-        missRate = 0
-        hitRate = 0
+    with webapp.app_context():
+        numOfItem = len(memcache.keys())
+        totalSize = cacheState.total_image_size
+        numOfRequests = cacheState.reqServed_num
+        if (cacheState.hitCount == 0) and (cacheState.missCount == 0):
+            missRate = 0
+            hitRate = 0
+        else:
+            hitmiss = cacheState.missCount + cacheState.hitCount
+            missRate = cacheState.missCount / hitmiss
+            hitRate = cacheState.hitCount / hitmiss
 
-    else:
-        hitmiss = cacheState.missCount + cacheState.hitCount
-        missRate = cacheState.missCount / hitmiss
-        hitRate = cacheState.hitCount / hitmiss
-    
-    now = datetime.datetime.now()
-    now = now.strftime('%Y-%m-%d %H:%M:%S')
-    cnx = get_db()
-    cursor = cnx.cursor()
-    query = '''INSERT INTO statistics (numOfItem, totalSize, numOfRequests, 
-                            missRate, hitRate, time_stamp) VALUES (%s,%s,%s,%s,%s,%s)'''
-    cursor.execute(query, (numOfItem, totalSize, numOfRequests, missRate, hitRate, now))
-    cnx.commit()
-    cnx.close()
+        now = datetime.datetime.now()
+        now = now.strftime('%Y-%m-%d %H:%M:%S')
+        cnx = get_db()
+        cursor = cnx.cursor()
+        query = '''INSERT INTO statistics (numOfItem, totalSize, numOfRequests, 
+                                missRate, hitRate, time_stamp) VALUES (%s,%s,%s,%s,%s,%s)'''
+        cursor.execute(query, (numOfItem, totalSize, numOfRequests, missRate, hitRate, now))
+        cnx.commit()
+        cnx.close()
 
-'''
+
 with webapp.app_context():
     get_config()
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(func = refresh_stat, trigger = "interval", seconds = 5)
-    scheduler.start()
-'''
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=refresh_stat, trigger="interval", seconds=5)
+scheduler.start()
 
 
 def subinvalidatekey(key):
@@ -151,33 +136,6 @@ def fitCapacity(extraSize):
     print("after ", memcache.keys())
     print(cacheState.total_image_size)
 
-"""////////////////////////////////////////STAT//////////////////////////////////////////"""
-
-"""
-def changeStat():
-    # ... write db here ...
-    #cacheState.countStat()  # calc stat
-    refresh_stat()  
-    print("5 sec")
-"""
-
-def caller(callback_func, ):
-    with webapp.app_context():
-        callback_func()
-        sleep(5)
-        caller(callback_func, )
-
-with webapp.app_context():
-    try:
-        thread = Thread(target=caller, args=(refresh_stat,))
-        thread.start()  # start refreshing
-        while thread.is_alive(): 
-            thread.join()
-    except KeyboardInterrupt:
-        print("key exception")
-        sys.exit()
-
-"""/////"""
 
 def subPUT(key, value):
     """
@@ -220,7 +178,7 @@ def subPUT(key, value):
         )
         return response
 
-    subinvalidatekey(key)  # remove key if the key is already in the cache
+    # subinvalidatekey(key)  # remove key if the key is already in the cache
 
     fitCapacity(image_size)  # fit capacity
     # add the key image pair in the cache
@@ -254,8 +212,7 @@ def subGET(key):
         )
 
         # miss
-        #cacheState.listOfStat.append(("miss", datetime.datetime.now()))
-        cacheState.missCount = cacheState.miss+1
+        cacheState.missCount +=1
         return response
     else:
         # timestamp update
@@ -270,8 +227,8 @@ def subGET(key):
             mimetype='application/json'
         )
         # hit
-        #cacheState.listOfStat.append(("hit", datetime.datetime.now()))
-        cacheState.hitCount = cacheState.hitCount+1
+        # cacheState.listOfStat.append(("hit", datetime.datetime.now()))
+        cacheState.hitCount +=1
         return response
 
 
@@ -308,6 +265,12 @@ def PUT():
     return subPUT(key, image)
 
 
+@webapp.route('/invalidateKey', methods=['POST', 'GET'])
+def invalidateKey():
+    key = request.json["key"]
+    return subinvalidatekey(key)
+
+
 @webapp.route('/refreshConfiguration', methods=['POST'])
 def refreshConfiguration():
     # request+1
@@ -326,3 +289,7 @@ def refreshConfiguration():
         mimetype='application/json'
     )
     return response
+
+
+if __name__ == '__main__':
+    webapp.run(host='0.0.0.0', port=5001, debug=True)
