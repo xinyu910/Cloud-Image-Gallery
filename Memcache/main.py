@@ -13,6 +13,7 @@ import json
 '''INIT'''
 global memcacheConfig
 global cacheState
+global cnx
 cacheState = Stats()  # currently testing, use cacheState.hit cacheState.miss for hit/miss rate
 
 
@@ -37,15 +38,18 @@ def teardown_db(exception):
         db.close()
 
 
-def get_config():
+def init_db():
+    global cnx
     cnx = get_db()
+
+
+def get_config():
     cursor = cnx.cursor()
     query = '''SELECT capacity, policy
                     FROM configurations WHERE config_id = 1;'''
 
     cursor.execute(query)
     rows = cursor.fetchall()
-    cnx.close()
     global memcacheConfig
     memcacheConfig = {'capacity': rows[0][0], 'policy': rows[0][1]}
 
@@ -65,7 +69,6 @@ def refresh_stat():
 
         now = datetime.datetime.now()
         now = now.strftime('%Y-%m-%d %H:%M:%S')
-        cnx = get_db()
         cursor = cnx.cursor()
 
         query = '''INSERT INTO statistics (numOfItem, totalSize, numOfRequests, 
@@ -73,11 +76,11 @@ def refresh_stat():
         cursor.execute(query, (numOfItem, totalSize, numOfRequests, missRate, hitRate, now))
         print("success", now)
         cnx.commit()
-        cnx.close()
 
 
 with webapp.app_context():
     get_config()
+    init_db()
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=refresh_stat, trigger="interval", seconds=5)
     scheduler.start()
@@ -214,7 +217,7 @@ def subGET(key):
         )
 
         # miss
-        cacheState.missCount +=1
+        cacheState.missCount += 1
         return response
     else:
         # timestamp update
@@ -230,7 +233,7 @@ def subGET(key):
         )
         # hit
         # cacheState.listOfStat.append(("hit", datetime.datetime.now()))
-        cacheState.hitCount +=1
+        cacheState.hitCount += 1
         return response
 
 

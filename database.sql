@@ -2,6 +2,10 @@ CREATE DATABASE IF NOT EXISTS memcache;
 
 USE memcache;
 
+DROP TABLE images;
+DROP TABLE configurations;
+DROP TABLE statistics;
+
 CREATE TABLE images(image_key varchar(100) NOT NULL,
                     image_path varchar(200) NOT NULL,
                     PRIMARY KEY (image_key));
