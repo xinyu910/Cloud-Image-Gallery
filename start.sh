@@ -1,3 +1,3 @@
 # conda activate ece79 
 # if using conda
-python "run.py"
+cd FrontEnd && ./run.py & cd Memcache && ./run.py

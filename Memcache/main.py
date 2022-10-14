@@ -7,10 +7,10 @@ import mysql.connector
 from Memcache.config import db_config
 from Memcache.memcache_stat import Stats
 from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
 import json
 
 '''INIT'''
-# config from the db
 global memcacheConfig
 global cacheState
 cacheState = Stats()  # currently testing, use cacheState.hit cacheState.miss for hit/miss rate
@@ -67,19 +67,21 @@ def refresh_stat():
         now = now.strftime('%Y-%m-%d %H:%M:%S')
         cnx = get_db()
         cursor = cnx.cursor()
+
         query = '''INSERT INTO statistics (numOfItem, totalSize, numOfRequests, 
                                 missRate, hitRate, time_stamp) VALUES (%s,%s,%s,%s,%s,%s)'''
         cursor.execute(query, (numOfItem, totalSize, numOfRequests, missRate, hitRate, now))
+        print("success", now)
         cnx.commit()
         cnx.close()
 
 
 with webapp.app_context():
     get_config()
-
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=refresh_stat, trigger="interval", seconds=5)
-scheduler.start()
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(func=refresh_stat, trigger="interval", seconds=5)
+    scheduler.start()
+    atexit.register(lambda: scheduler.shutdown())
 
 
 def subinvalidatekey(key):
@@ -292,4 +294,4 @@ def refreshConfiguration():
 
 
 if __name__ == '__main__':
-    webapp.run(host='0.0.0.0', port=5001, debug=True)
+    webapp.run(host='0.0.0.0', port=5001, debug=False, use_reloader=False)

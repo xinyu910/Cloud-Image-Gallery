@@ -9,7 +9,7 @@ from FrontEnd import webapp
 from FrontEnd.config import db_config
 import datetime
 
-UPLOAD_FOLDER = 'FrontEnd/static/images'
+UPLOAD_FOLDER = './static/images'
 webapp.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tiff', '.gif', '.tif', '.bmp', '.raw', '.cr2', '.nef', '.orf', '.sr2',
                       '.psd', '.xcf', '.ai', 'cdr'}
@@ -245,4 +245,4 @@ def upload():
 
 
 if __name__ == '__main__':
-    webapp.run(host='0.0.0.0', port=5000, debug=True)
+    webapp.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
