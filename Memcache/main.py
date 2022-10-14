@@ -7,6 +7,7 @@ import random
 import mysql.connector
 from Memcache.config import db_config
 from Memcache.memcache_stat import Stats
+#from apscheduler.schedulers.background import BackgroundScheduler
 
 import json
 import time
@@ -56,37 +57,44 @@ def get_config():
 
 def refresh_stat():
     """
-    TABLE statistics(id int NOT NULL AUTO_INCREMENT,
+    CREATE TABLE statistics(id int NOT NULL AUTO_INCREMENT,
                         numOfItem int NOT NULL,
                         totalSize int NOT NULL,
                         numOfRequests int NOT NULL,
                         missRate DECIMAL NOT NULL,
                         hitRate DECIMAL NOT NULL,
+                        time_stamp DATETIME NOT NULL,
                         PRIMARY KEY (id));
     """
     numOfItem = len(memcache.keys())
-    totalSize = cacheState.hit + cacheState.miss
+    totalSize = cacheState.total_image_size
     numOfRequests = cacheState.reqServed_num
-    if (cacheState.hit == 0) and (cacheState.miss == 0):
+    if (cacheState.hitCount == 0) and (cacheState.missCount == 0):
         missRate = 0
         hitRate = 0
 
     else:
-        missRate = cacheState.miss / totalSize
-        hitRate = cacheState.hit / totalSize
+        hitmiss = cacheState.missCount + cacheState.hitCount
+        missRate = cacheState.missCount / hitmiss
+        hitRate = cacheState.hitCount / hitmiss
+    
+    now = datetime.datetime.now()
+    now = now.strftime('%Y-%m-%d %H:%M:%S')
     cnx = get_db()
     cursor = cnx.cursor()
     query = '''INSERT INTO statistics (numOfItem, totalSize, numOfRequests, 
-                            missRate, hitRate ) VALUES (%s,%s,%s,%s,%s)'''
-    cursor.execute(query, (numOfItem, totalSize, numOfRequests, missRate, hitRate))
-
-    rows = cursor.fetchall()
+                            missRate, hitRate, time_stamp) VALUES (%s,%s,%s,%s,%s,%s)'''
+    cursor.execute(query, (numOfItem, totalSize, numOfRequests, missRate, hitRate, now))
+    cnx.commit()
     cnx.close()
-    return {'capacity': rows[0][0], 'policy': rows[0][1]}
 
-
+'''
 with webapp.app_context():
     get_config()
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(func = refresh_stat, trigger = "interval", seconds = 5)
+    scheduler.start()
+'''
 
 
 def subinvalidatekey(key):
@@ -143,30 +151,33 @@ def fitCapacity(extraSize):
     print("after ", memcache.keys())
     print(cacheState.total_image_size)
 
-
 """////////////////////////////////////////STAT//////////////////////////////////////////"""
 
-
+"""
 def changeStat():
     # ... write db here ...
-    cacheState.countStat()  # calc stat
-    refresh_stat()  # refresh database?????????????????????????????????????
-    print(cacheState.miss, "-", cacheState.hit)
+    #cacheState.countStat()  # calc stat
+    refresh_stat()  
+    print("5 sec")
+"""
 
-
-def caller(callback_func, first=True):
+def caller(callback_func, ):
     with webapp.app_context():
         callback_func()
         sleep(5)
-        caller(callback_func, False)
+        caller(callback_func, )
 
-
-'''
 with webapp.app_context():
-    thread = Thread(target=caller, args=(changeStat,))
-    thread.start()  # start refreshing
-'''
+    try:
+        thread = Thread(target=caller, args=(refresh_stat,))
+        thread.start()  # start refreshing
+        while thread.is_alive(): 
+            thread.join()
+    except KeyboardInterrupt:
+        print("key exception")
+        sys.exit()
 
+"""/////"""
 
 def subPUT(key, value):
     """
@@ -243,7 +254,8 @@ def subGET(key):
         )
 
         # miss
-        cacheState.listOfStat.append(("miss", datetime.datetime.now()))
+        #cacheState.listOfStat.append(("miss", datetime.datetime.now()))
+        cacheState.missCount = cacheState.miss+1
         return response
     else:
         # timestamp update
@@ -258,7 +270,8 @@ def subGET(key):
             mimetype='application/json'
         )
         # hit
-        cacheState.listOfStat.append(("hit", datetime.datetime.now()))
+        #cacheState.listOfStat.append(("hit", datetime.datetime.now()))
+        cacheState.hitCount = cacheState.hitCount+1
         return response
 
 
@@ -266,6 +279,7 @@ def subCLEAR():
     # request+1
     cacheState.reqServed_num += 1
     cacheState.total_image_size = 0
+    cacheStat.numOfItem = 0
     memcache.clear()
     data = {"success": "true"}
     response = webapp.response_class(

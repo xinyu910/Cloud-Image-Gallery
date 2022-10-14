@@ -7,6 +7,7 @@ import requests
 
 from FrontEnd import webapp
 from FrontEnd.config import db_config
+import datetime
 
 UPLOAD_FOLDER = './static/images'
 webapp.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -126,7 +127,19 @@ def key():
 
 @webapp.route('/statistics', methods=['GET'])
 def statistics():
-    return render_template("statistics.html")
+    cnx = get_db()
+    cursor = cnx.cursor()
+    now = datetime.datetime.now()
+    previous = now - datetime.timedelta(minutes=10)
+    now = now.strftime('%Y-%m-%d %H:%M:%S')
+    previous = previous.strftime('%Y-%m-%d %H:%M:%S')
+    # get 10 minutes stats from database
+    query = "SELECT * FROM statistics WHERE time_stamp <= %s AND time_stamp >= %s"
+
+    cursor.execute(query, (now, previous))
+    rows = cursor.fetchall()
+    cnx.close()
+    return render_template("statistics.html", rows=rows)
 
 
 @webapp.route('/config', methods=['GET'])

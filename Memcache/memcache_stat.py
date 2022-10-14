@@ -23,7 +23,8 @@ class Stats:
 
         """////no out////"""
         self.listOfStat = []  # list of tuple in the format (miss or hit str, timestamp)
-
+    
+    
     def countStat(self):
         """
         Add states within 10 min in to a list
@@ -31,8 +32,9 @@ class Stats:
         miss = 0
         hit = 0
         currentTime = datetime.datetime.now()
-        diffTime = currentTime - datetime.timedelta(minutes=10)  # 10 minutes before
-
+        #diffTime = currentTime - datetime.timedelta(minutes=10)  # 10 minutes before
+        
+        '''
         for index in range(len(self.listOfStat)):
             time = self.listOfStat[index][1]
             if time >= diffTime:  # why current time>=time wtf
@@ -42,6 +44,7 @@ class Stats:
                     hit += 1
             else:
                 del self.listOfStat[index]
+        '''
 
         self.missCount = miss
         self.hitCount = hit

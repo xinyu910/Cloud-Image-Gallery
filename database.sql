@@ -19,6 +19,7 @@ CREATE TABLE statistics(id int NOT NULL AUTO_INCREMENT,
                         numOfRequests int NOT NULL,
                         missRate DECIMAL NOT NULL,
                         hitRate DECIMAL NOT NULL,
+                        time_stamp DATETIME NOT NULL,
                         PRIMARY KEY (id));
 
 
