@@ -64,7 +64,7 @@ def listKeys():
     """Display the html page that shows all the keys in the database"""
     cnx = get_db()
     cursor = cnx.cursor()
-    query = '''SELECT image_id, image_path
+    query = '''SELECT image_key, image_path
                     FROM images;
                 '''
     cursor.execute(query)
@@ -107,7 +107,7 @@ def key():
         cursor = cnx.cursor()
 
         # check if database has the key or not
-        has_key = "SELECT image_path FROM images WHERE image_id = %s"
+        has_key = "SELECT image_path FROM images WHERE image_key = %s"
 
         cursor.execute(has_key, (image_key,))
         rows = cursor.fetchall()
@@ -188,7 +188,7 @@ def upload():
     cursor = cnx.cursor()
 
     # check if database has the key or not
-    has_key = ''' SELECT image_path FROM images WHERE image_id = %s'''
+    has_key = ''' SELECT image_path FROM images WHERE image_key = %s'''
 
     cursor.execute(has_key, (image_key,))
 
@@ -204,7 +204,7 @@ def upload():
         path_to_delete = rows[0][0]
         if os.path.isfile(path_to_delete):
             os.remove(path_to_delete)
-        query = '''UPDATE images SET image_path = %s WHERE image_id = %s'''
+        query = '''UPDATE images SET image_path = %s WHERE image_key = %s'''
         cursor.execute(query, (filename, image_key))
         cnx.commit()
     else:
@@ -218,7 +218,7 @@ def upload():
             name, extension = os.path.splitext(filename)
             filename = name[:-1] + str(count) + extension
         image_file.save(filename)
-        query = ''' INSERT INTO images (image_id, image_path) VALUES (%s,%s)'''
+        query = ''' INSERT INTO images (image_key, image_path) VALUES (%s,%s)'''
         cursor.execute(query, (image_key, filename))
         cnx.commit()
 

@@ -2,9 +2,9 @@ CREATE DATABASE IF NOT EXISTS memcache;
 
 USE memcache;
 
-CREATE TABLE images(image_id int NOT NULL,
-                    image_path varchar(1000) NOT NULL,
-                    PRIMARY KEY (image_id));
+CREATE TABLE images(image_key varchar(100) NOT NULL,
+                    image_path varchar(200) NOT NULL,
+                    PRIMARY KEY (image_key));
 
 CREATE TABLE configurations(config_id int NOT NULL DEFAULT 1,
                             capacity int NOT NULL,

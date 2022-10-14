@@ -89,12 +89,6 @@ with webapp.app_context():
     get_config()
 
 
-def capacitySum():
-    """get the capacity of the dict"""
-    sizeMB = sys.getsizeof(memcache) / 1048576
-    return sys.getsizeof(memcache)
-
-
 def subinvalidatekey(key):
     """invalidatekey in memcache when needed"""
     # request+1
@@ -121,27 +115,33 @@ def dictLRU():
     for key in memcache.keys():
         if memcache[key]['time'] == OldTimeStamp:
             oldestKey = key  # find oldest key
-
-    memcache.delete(oldestKey)  # delete oldest key
+    # image size deducted
+    cacheState.total_image_size = cacheState.total_image_size - sys.getsizeof(memcache[oldestKey]['content'])
+    del memcache[oldestKey]  # delete oldest key
 
 
 def dictRandom():
     """Remove a key randomly"""
     keys = list(memcache.keys())
     keyIndex = random.randint(0, len(keys) - 1)
+    # image size deducted
+    cacheState.total_image_size = cacheState.total_image_size - sys.getsizeof(memcache[keys[keyIndex]]['content'])
+    del memcache[keys[keyIndex]]  # delete the random key
 
-    memcache.delete(keys[keyIndex])  # randomly delete
 
-
-def fitCapacity(currentSize):
+def fitCapacity(extraSize):
     """if the given size exceeded cache capacity, delete keys based on selected policy"""
-    while (currentSize) > memcacheConfig['capacity'] and bool(memcache):
+    print("before ", memcache.keys())
+    print(cacheState.total_image_size)
+    while (extraSize+cacheState.total_image_size) > memcacheConfig['capacity'] * 1048576 and bool(memcache):
         # capacity full
         print("Error: Larger than capacity, remove one")
-        if memcacheConfig['capacity'] == "LRU":
+        if memcacheConfig['policy'] == "LRU":
             dictLRU()
         else:
             dictRandom()
+    print("after ", memcache.keys())
+    print(cacheState.total_image_size)
 
 
 """////////////////////////////////////////STAT//////////////////////////////////////////"""
@@ -160,11 +160,13 @@ def caller(callback_func, first=True):
         sleep(5)
         caller(callback_func, False)
 
+
 '''
 with webapp.app_context():
     thread = Thread(target=caller, args=(changeStat,))
     thread.start()  # start refreshing
 '''
+
 
 def subPUT(key, value):
     """
@@ -193,8 +195,8 @@ def subPUT(key, value):
             mimetype='application/json'
         )
         return response
-    image_size = sys.getsizeof(value) / 1048576
-    if image_size > memcacheConfig['capacity']:
+    image_size = sys.getsizeof(value)
+    if image_size > memcacheConfig['capacity'] * 1048576:
         data = {"success": "false",
                 "error": {
                     "code": 400,
@@ -208,9 +210,13 @@ def subPUT(key, value):
         return response
 
     subinvalidatekey(key)  # remove key if the key is already in the cache
-    fitCapacity(capacitySum() + (sys.getsizeof(value) / 1048576) + sys.getsizeof(key))  # fit capacity
+
+    fitCapacity(image_size)  # fit capacity
     # add the key image pair in the cache
     memcache[key] = {'content': value, 'time': datetime.datetime.now()}
+    cacheState.total_image_size = cacheState.total_image_size+image_size
+    print("final ", memcache.keys())
+    print(cacheState.total_image_size)
     data = {"success": "true"}
     response = webapp.response_class(
         response=json.dumps(data),
@@ -259,6 +265,7 @@ def subGET(key):
 def subCLEAR():
     # request+1
     cacheState.reqServed_num += 1
+    cacheState.total_image_size = 0
     memcache.clear()
     data = {"success": "true"}
     response = webapp.response_class(
@@ -295,15 +302,15 @@ def PUT():
 
 @webapp.route('/refreshConfiguration', methods=['POST'])
 def refreshConfiguration():
-    #request+1
+    # request+1
     cacheState.reqServed_num += 1
-    clear_result = request.json('clear')
+    clear_result = request.json['clear']
     get_config()
     # clear cache if needed or change memcache based on new capacity (reduce memcache if new capacity is smaller)
     if clear_result == 'Yes':
         subCLEAR()
     else:
-        fitCapacity(capacitySum())
+        fitCapacity(0)
     data = {"success": "true"}
     response = webapp.response_class(
         response=json.dumps(data),

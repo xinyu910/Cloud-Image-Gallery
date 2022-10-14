@@ -19,6 +19,7 @@ class Stats:
         self.reqServed_num = 0  # total request number to be added during run time
         self.missCount = 0
         self.hitCount = 0
+        self.total_image_size = 0
 
         """////no out////"""
         self.listOfStat = []  # list of tuple in the format (miss or hit str, timestamp)
