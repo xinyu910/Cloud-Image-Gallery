@@ -9,7 +9,7 @@ from FrontEnd import webapp
 from FrontEnd.config import db_config
 import datetime
 
-UPLOAD_FOLDER = './static/images'
+UPLOAD_FOLDER = 'FrontEnd/static/images'
 webapp.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tiff', '.gif', '.tif', '.bmp', '.raw', '.cr2', '.nef', '.orf', '.sr2',
                       '.psd', '.xcf', '.ai', 'cdr'}

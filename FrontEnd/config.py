@@ -1,5 +1,5 @@
-db_config = {'user': 'Xinyu Liu',
-             'password': 'Xinyuliu910!',
+db_config = {'user': 'root',
+             'password': '123456',
              'host': '127.0.0.1',
              'database': 'memcache'}
 

@@ -279,7 +279,7 @@ def subCLEAR():
     # request+1
     cacheState.reqServed_num += 1
     cacheState.total_image_size = 0
-    cacheStat.numOfItem = 0
+    cacheState.numOfItem = 0
     memcache.clear()
     data = {"success": "true"}
     response = webapp.response_class(
