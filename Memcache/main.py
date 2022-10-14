@@ -133,7 +133,7 @@ def fitCapacity(extraSize):
     """if the given size exceeded cache capacity, delete keys based on selected policy"""
     print("before ", memcache.keys())
     print(cacheState.total_image_size)
-    while (extraSize+cacheState.total_image_size) > memcacheConfig['capacity'] * 1048576 and bool(memcache):
+    while (extraSize + cacheState.total_image_size) > memcacheConfig['capacity'] * 1048576 and bool(memcache):
         # capacity full
         print("Error: Larger than capacity, remove one")
         if memcacheConfig['policy'] == "LRU":
@@ -214,7 +214,7 @@ def subPUT(key, value):
     fitCapacity(image_size)  # fit capacity
     # add the key image pair in the cache
     memcache[key] = {'content': value, 'time': datetime.datetime.now()}
-    cacheState.total_image_size = cacheState.total_image_size+image_size
+    cacheState.total_image_size = cacheState.total_image_size + image_size
     print("final ", memcache.keys())
     print(cacheState.total_image_size)
     data = {"success": "true"}
@@ -279,12 +279,6 @@ def subCLEAR():
 @webapp.route('/', methods=['POST', 'GET'])
 def welcome():
     return "welcome"
-
-
-@webapp.route('/invalidateKey', methods=['POST'])
-def invalidateKey():
-    key = request.json["key"]
-    return subinvalidatekey(key)
 
 
 @webapp.route('/GET', methods=['POST', 'GET'])
