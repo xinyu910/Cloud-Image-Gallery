@@ -150,7 +150,7 @@ def apiUpload():
         return response
 
 
-@webapp.route('/api/key/<string:key_value>', methods=['GET'])
+@webapp.route('/api/key/<string:key_value>', methods=['POST'])
 def apikey(key_value):
     image_key = key_value
     if image_key == '':
