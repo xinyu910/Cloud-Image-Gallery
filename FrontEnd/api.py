@@ -47,6 +47,7 @@ def list_keys():
 def apiUpload():
     """
     Upload the key image pair. Store the image in local filesystem and put the file location in the database
+    calls invalidatekey in memcache
     Returns: response object fot test
     """
     image_key = request.form.get('key')
@@ -66,6 +67,7 @@ def apiUpload():
             mimetype='application/json')
         return response
 
+    # check if the uploaded file type is allowed
     if not allowed_file(image_file.filename):
         data = {
             "success": "false",
@@ -136,15 +138,16 @@ def apiUpload():
             status=500,
             mimetype='application/json')
         return response
-    data = {
-        "success": "true"
-    }
-    response = webapp.response_class(
-        response=json.dumps(data),
-        status=200,
-        mimetype='application/json')
+    else:
+        data = {
+            "success": "true"
+        }
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=200,
+            mimetype='application/json')
 
-    return response
+        return response
 
 
 @webapp.route('/api/key/<string:key_value>', methods=['GET'])
@@ -163,7 +166,7 @@ def apikey(key_value):
             mimetype='application/json')
         return response
 
-        # find in memcache
+    # # find if this key image pair is in memcache, if so, retrieve and render it directly from cache.
     dataSend = {"key": image_key}
     res = requests.post('http://localhost:5001/GET', json=dataSend)
     if res.status_code == 200:
@@ -189,6 +192,7 @@ def apikey(key_value):
         rows = cursor.fetchall()
         cnx.close()
 
+        # database has the key, store the image key and the encoded image content pair in cache for next retrieval
         if rows:
             path = rows[0][0]
             path = path.replace('\\', '/')

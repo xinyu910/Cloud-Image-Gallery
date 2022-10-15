@@ -8,6 +8,7 @@ from FrontEnd import webapp
 from FrontEnd.config import db_config
 import datetime
 
+# path to read and save images to local file system
 UPLOAD_FOLDER = 'FrontEnd/static/images'
 webapp.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tiff', '.gif', '.tif', '.bmp', '.raw', '.cr2', '.nef', '.orf', '.sr2',
@@ -29,6 +30,7 @@ def get_db():
 
 
 def allowed_file(filename):
+    """check if the file type is allowed"""
     return '.' in filename and ('.' + filename.rsplit('.', 1)[1]) in ALLOWED_EXTENSIONS
 
 
@@ -64,6 +66,7 @@ def listKeys():
     """Display the html page that shows all the keys in the database"""
     cnx = get_db()
     cursor = cnx.cursor()
+    # get all image data from database
     query = '''SELECT image_key, image_path
                     FROM images;
                 '''
@@ -104,26 +107,31 @@ def key():
         rows = cursor.fetchall()
         cnx.close()
 
-        if rows:
+        # database has the key, store the image key and the encoded image content pair in cache for next retrieval
+        if len(rows) > 0:
             path = rows[0][0]
             path = path.replace('\\', '/')
             base64_image = base64.b64encode(open(path, "rb").read()).decode('utf-8')
             dataSend = {"key": image_key, "image": base64_image}
-            requests.post('http://localhost:5000/mem/PUT', json=dataSend)
-            return render_template('show_image.html', key=image_key, image=base64_image)
+            res = requests.post('http://localhost:5000/mem/PUT', json=dataSend)
+            if res.status_code == 200:
+                return render_template('show_image.html', key=image_key, image=base64_image)
+            else:
+                return redirect(url_for('failure', msg=res.json()['error']['message']))
         else:
             return redirect(url_for('failure', msg="Unknown Key"))
 
 
 @webapp.route('/statistics', methods=['GET'])
 def statistics():
+    """From database get and show past 10 minutes' memcache statistics"""
     cnx = get_db()
     cursor = cnx.cursor()
     now = datetime.datetime.now()
     previous = now - datetime.timedelta(minutes=10)
     now = now.strftime('%Y-%m-%d %H:%M:%S')
     previous = previous.strftime('%Y-%m-%d %H:%M:%S')
-    # get 10 minutes stats from database
+    # get past 10 minutes stats from database
     query = "SELECT * FROM statistics WHERE time_stamp <= %s AND time_stamp >= %s"
 
     cursor.execute(query, (now, previous))
@@ -134,6 +142,7 @@ def statistics():
 
 @webapp.route('/config', methods=['GET'])
 def config():
+    """render the configuration form, show form default value that is consistent with the database values"""
     cnx = get_db()
     cursor = cnx.cursor()
 
@@ -146,6 +155,7 @@ def config():
 
 @webapp.route('/update_config', methods=['POST'])
 def update_config():
+    """update the new configuration value get from user in the database and memcache"""
     capacity_result = int(request.form.get('capacity'))
     policy_result = request.form.get('policy')
     clear_result = request.form.get('clear')
@@ -157,6 +167,7 @@ def update_config():
                    (capacity_result, policy_result))
     cnx.commit()
     cnx.close()
+    # also send if it is necessary to clear the cache data
     dataSend = {"clear": clear_result}
     res = requests.post('http://localhost:5000/mem/refreshConfiguration', json=dataSend)
     if res.status_code == 200:
@@ -175,6 +186,7 @@ def upload_form():
 def upload():
     """
     Upload the key image pair. Store the image in local filesystem and put the file location in the database
+    calls invalidatekey in memcache.
     Returns: response object fot test
     """
     image_key = request.form.get('key')
@@ -184,6 +196,7 @@ def upload():
     if image_file.filename == '' or image_key == '':
         return redirect(url_for('failure', msg="No image file or key given or they are not given through form"))
 
+    # check if the uploaded file type is allowed
     if not allowed_file(image_file.filename):
         return redirect(url_for('failure', msg="Image file type not supported"))
 
@@ -200,7 +213,6 @@ def upload():
     filename = filename.replace('\\', '/')
 
     rows = cursor.fetchall()
-    print(filename)
     # if the database has the key, delete the associated image in the file system
     # and replace the old file location in the database with the new one
     if rows:
@@ -211,6 +223,7 @@ def upload():
         query = '''UPDATE images SET image_path = %s WHERE image_key = %s'''
         cursor.execute(query, (filename, image_key))
         cnx.commit()
+    # if database doesn't have the key, insert key, image pair into it.
     else:
         # if duplicate file name found, add number after
         count = 1
@@ -232,7 +245,8 @@ def upload():
     res = requests.post('http://localhost:5000/mem/invalidateKey', json=dataSend)
     if res.status_code != 200:
         return redirect(url_for('failure', msg="Invalidate key error"))
-    return redirect(url_for('success', msg="Image Successfully Uploaded"))
+    else:
+        return redirect(url_for('success', msg="Image Successfully Uploaded"))
 
 
 if __name__ == '__main__':

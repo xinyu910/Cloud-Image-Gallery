@@ -2,7 +2,6 @@ CREATE DATABASE IF NOT EXISTS memcache;
 
 USE memcache;
 
-
 DROP TABLE images;
 DROP TABLE configurations;
 DROP TABLE statistics;
