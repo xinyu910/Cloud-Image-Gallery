@@ -9,6 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
 import json
 import mysql.connector
+import decimal
 
 '''INIT'''
 global memcacheConfig
@@ -59,8 +60,9 @@ def refresh_stat():
             hitRate = 0
         else:
             hitmiss = cacheState.missCount + cacheState.hitCount
-            missRate = cacheState.missCount / hitmiss
-            hitRate = cacheState.hitCount / hitmiss
+            missRate = decimal.Decimal(cacheState.missCount) / decimal.Decimal(hitmiss)
+            hitRate = decimal.Decimal(cacheState.hitCount) / decimal.Decimal(hitmiss)
+            print(missRate)
 
         now = datetime.datetime.now()
         now = now.strftime('%Y-%m-%d %H:%M:%S')
@@ -210,7 +212,9 @@ def subGET(key):
         )
 
         # miss
-        cacheState.missCount += 1
+        cacheState.missCount = cacheState.missCount + 1
+        print("miss: ", cacheState.missCount)
+        print("hit: ", cacheState.hitCount)
         return response
     else:
         # timestamp update
@@ -225,8 +229,9 @@ def subGET(key):
             mimetype='application/json'
         )
         # hit
-        # cacheState.listOfStat.append(("hit", datetime.datetime.now()))
-        cacheState.hitCount += 1
+        cacheState.hitCount = cacheState.hitCount + 1
+        print("miss: ", cacheState.missCount)
+        print("hit: ", cacheState.hitCount)
         return response
 
 
