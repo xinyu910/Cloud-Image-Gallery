@@ -1,7 +1,7 @@
 # Cloud-Computing-MemCache
 # ECE 1779 Project
 
-# Prerequisites
+# Pre-request packages
 
 Main packages required:
 
