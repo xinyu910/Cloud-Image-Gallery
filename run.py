@@ -21,7 +21,7 @@ if __name__ == "__main__":
     """
     run_simple('0.0.0.0', 5000, applications,
                use_reloader=False,
-               use_debugger=True,
+               use_debugger=False,
                use_evalex=True,
                threaded=True)
 

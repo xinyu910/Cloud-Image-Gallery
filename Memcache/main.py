@@ -3,13 +3,12 @@ import datetime
 from Memcache import webapp, memcache
 import sys
 import random
-from Memcache.memcache_stat import Stats
+import mysql.connector
 from Memcache.config import db_config
+from Memcache.memcache_stat import Stats
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
 import json
-import mysql.connector
-import decimal
 
 '''INIT'''
 global memcacheConfig
@@ -46,6 +45,7 @@ def get_config():
 
     cursor.execute(query)
     rows = cursor.fetchall()
+    cnx.close()
     global memcacheConfig
     memcacheConfig = {'capacity': rows[0][0], 'policy': rows[0][1]}
 
@@ -55,14 +55,15 @@ def refresh_stat():
         numOfItem = len(memcache.keys())
         totalSize = cacheState.total_image_size
         numOfRequests = cacheState.reqServed_num
-        if (cacheState.hitCount == 0) and (cacheState.missCount == 0):
+        if cacheState.hitCount != 0 or cacheState.missCount != 0:
+            hitmiss = cacheState.missCount + cacheState.hitCount
+            missRate = cacheState.missCount / hitmiss
+            hitRate = cacheState.hitCount / hitmiss
+
+        else:
             missRate = 0
             hitRate = 0
-        else:
-            hitmiss = cacheState.missCount + cacheState.hitCount
-            missRate = decimal.Decimal(cacheState.missCount) / decimal.Decimal(hitmiss)
-            hitRate = decimal.Decimal(cacheState.hitCount) / decimal.Decimal(hitmiss)
-            print(missRate)
+        print(cacheState.missCount, "-", cacheState.hitCount, "/", missRate, " - ", hitRate)
 
         now = datetime.datetime.now()
         now = now.strftime('%Y-%m-%d %H:%M:%S')
@@ -72,7 +73,9 @@ def refresh_stat():
         query = '''INSERT INTO statistics (numOfItem, totalSize, numOfRequests, 
                                 missRate, hitRate, time_stamp) VALUES (%s,%s,%s,%s,%s,%s)'''
         cursor.execute(query, (numOfItem, totalSize, numOfRequests, missRate, hitRate, now))
+
         cnx.commit()
+        cnx.close()
 
 
 with webapp.app_context():
@@ -85,9 +88,10 @@ with webapp.app_context():
 
 def subinvalidatekey(key):
     """invalidatekey in memcache when needed"""
+    # request+1
+    cacheState.reqServed_num += 1
+
     if key in memcache:
-        # request+1 only if there's need to invalidate
-        cacheState.reqServed_num += 1
         memcache.pop(key, None)
     data = {"success": "true"}
     response = webapp.response_class(
@@ -124,8 +128,8 @@ def dictRandom():
 
 def fitCapacity(extraSize):
     """if the given size exceeded cache capacity, delete keys based on selected policy"""
-    print("before ", memcache.keys())
-    print(cacheState.total_image_size)
+    #print("before ", memcache.keys())
+    #print(cacheState.total_image_size)
     while (extraSize + cacheState.total_image_size) > memcacheConfig['capacity'] * 1048576 and bool(memcache):
         # capacity full
         print("Error: Larger than capacity, remove one")
@@ -133,8 +137,8 @@ def fitCapacity(extraSize):
             dictLRU()
         else:
             dictRandom()
-    print("after ", memcache.keys())
-    print(cacheState.total_image_size)
+    #print("after ", memcache.keys())
+    #print(cacheState.total_image_size)
 
 
 def subPUT(key, value):
@@ -149,6 +153,7 @@ def subPUT(key, value):
                 }
     """
     """file type error"""
+    print("put key: ", key)
     # request+1
     cacheState.reqServed_num += 1
 
@@ -183,9 +188,10 @@ def subPUT(key, value):
     fitCapacity(image_size)  # fit capacity
     # add the key image pair in the cache
     memcache[key] = {'content': value, 'time': datetime.datetime.now()}
+    print("after put, now:", memcache.keys())
     cacheState.total_image_size = cacheState.total_image_size + image_size
-    print("final ", memcache.keys())
-    print(cacheState.total_image_size)
+    #print("final ", memcache.keys())
+    #print(cacheState.total_image_size)
     data = {"success": "true"}
     response = webapp.response_class(
         response=json.dumps(data),
@@ -198,25 +204,12 @@ def subPUT(key, value):
 def subGET(key):
     # request+1
     cacheState.reqServed_num += 1
-
-    if key not in memcache.keys():
-        data = {"success": "false",
-                "error": {
-                    "code": 404,
-                    "message": "Unknown Key"
-                }}
-        response = webapp.response_class(
-            response=json.dumps(data),
-            status=404,
-            mimetype='application/json'
-        )
-
-        # miss
-        cacheState.missCount = cacheState.missCount + 1
-        print("miss: ", cacheState.missCount)
-        print("hit: ", cacheState.hitCount)
-        return response
-    else:
+    print("tryget:", key,"-", key in memcache.keys())
+    if key in memcache.keys():
+        # hit
+        # cacheState.listOfStat.append(("hit", datetime.datetime.now()))
+        cacheState.hitCount += 1
+        print("success hit")
         # timestamp update
         memcache[key]['time'] = datetime.datetime.now()
         data = {
@@ -228,10 +221,21 @@ def subGET(key):
             status=200,
             mimetype='application/json'
         )
-        # hit
-        cacheState.hitCount = cacheState.hitCount + 1
-        print("miss: ", cacheState.missCount)
-        print("hit: ", cacheState.hitCount)
+        return response
+    else:
+        # miss
+        print("miss")
+        cacheState.missCount += 1
+        data = {"success": "false",
+                "error": {
+                    "code": 404,
+                    "message": "Unknown Key"
+                }}
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=404,
+            mimetype='application/json'
+        )
         return response
 
 
@@ -287,12 +291,9 @@ def refreshConfiguration():
         fitCapacity(0)
     data = {"success": "true"}
     response = webapp.response_class(
-        response=json.dumps(data),
-        status=200,
-        mimetype='application/json'
+        response = json.dumps(data),
+        status = 200,
+        mimetype = 'application/json'
     )
     return response
 
-
-if __name__ == '__main__':
-    webapp.run(host='0.0.0.0', port=5001, debug=False, use_reloader=False)
