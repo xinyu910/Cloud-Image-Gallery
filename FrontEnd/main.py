@@ -4,12 +4,11 @@ import mysql.connector
 from flask import render_template, request, g, redirect, url_for
 from werkzeug.utils import secure_filename
 import requests
-
 from FrontEnd import webapp
 from FrontEnd.config import db_config
 import datetime
 
-UPLOAD_FOLDER = './static/images'
+UPLOAD_FOLDER = 'FrontEnd/static/images'
 webapp.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tiff', '.gif', '.tif', '.bmp', '.raw', '.cr2', '.nef', '.orf', '.sr2',
                       '.psd', '.xcf', '.ai', 'cdr'}
@@ -71,15 +70,6 @@ def listKeys():
     cursor.execute(query)
     rows = cursor.fetchall()
     cnx.close()
-    # does not call api post endpoint because we also want to show the file path on the html page.
-    '''
-        res = requests.post('http://localhost:5000/api/list_keys')
-        if res.status_code == 200:
-            print(res.json()['keys'])
-            return render_template("key_list.html", cursor=res.json()['keys'])
-        else:
-            return redirect(url_for('failure', msg=res.json()['error']['message']))
-    '''
     return render_template("key_list.html", cursor=rows)
 
 
@@ -99,7 +89,7 @@ def key():
 
     # find if this key image pair is in memcache, if so, retrieve and render it directly from cache.
     dataSend = {"key": image_key}
-    res = requests.post('http://localhost:5001/GET', json=dataSend)
+    res = requests.post('http://localhost:5000/mem/GET', json=dataSend)
     if res.status_code == 200:
         return render_template('show_image.html', key=image_key, image=res.json()['content'])
     else:
@@ -119,7 +109,7 @@ def key():
             path = path.replace('\\', '/')
             base64_image = base64.b64encode(open(path, "rb").read()).decode('utf-8')
             dataSend = {"key": image_key, "image": base64_image}
-            requests.post('http://localhost:5001/PUT', json=dataSend)
+            requests.post('http://localhost:5000/mem/PUT', json=dataSend)
             return render_template('show_image.html', key=image_key, image=base64_image)
         else:
             return redirect(url_for('failure', msg="Unknown Key"))
@@ -168,7 +158,7 @@ def update_config():
     cnx.commit()
     cnx.close()
     dataSend = {"clear": clear_result}
-    res = requests.post('http://localhost:5001/refreshConfiguration', json=dataSend)
+    res = requests.post('http://localhost:5000/mem/refreshConfiguration', json=dataSend)
     if res.status_code == 200:
         return redirect(url_for('success', msg="Configuration changed successfully"))
     else:
@@ -210,6 +200,7 @@ def upload():
     filename = filename.replace('\\', '/')
 
     rows = cursor.fetchall()
+    print(filename)
     # if the database has the key, delete the associated image in the file system
     # and replace the old file location in the database with the new one
     if rows:
@@ -238,7 +229,7 @@ def upload():
     cnx.close()
     # invalidate key in memcache
     dataSend = {"key": image_key}
-    res = requests.post('http://localhost:5001/invalidateKey', json=dataSend)
+    res = requests.post('http://localhost:5000/mem/invalidateKey', json=dataSend)
     if res.status_code != 200:
         return redirect(url_for('failure', msg="Invalidate key error"))
     return redirect(url_for('success', msg="Image Successfully Uploaded"))

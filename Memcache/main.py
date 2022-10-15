@@ -3,17 +3,16 @@ import datetime
 from Memcache import webapp, memcache
 import sys
 import random
-import mysql.connector
-from Memcache.config import db_config
 from Memcache.memcache_stat import Stats
+from Memcache.config import db_config
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
 import json
+import mysql.connector
 
 '''INIT'''
 global memcacheConfig
 global cacheState
-global cnx
 cacheState = Stats()  # currently testing, use cacheState.hit cacheState.miss for hit/miss rate
 
 
@@ -38,12 +37,8 @@ def teardown_db(exception):
         db.close()
 
 
-def init_db():
-    global cnx
-    cnx = get_db()
-
-
 def get_config():
+    cnx = get_db()
     cursor = cnx.cursor()
     query = '''SELECT capacity, policy
                     FROM configurations WHERE config_id = 1;'''
@@ -69,18 +64,17 @@ def refresh_stat():
 
         now = datetime.datetime.now()
         now = now.strftime('%Y-%m-%d %H:%M:%S')
+        cnx = get_db()
         cursor = cnx.cursor()
 
         query = '''INSERT INTO statistics (numOfItem, totalSize, numOfRequests, 
                                 missRate, hitRate, time_stamp) VALUES (%s,%s,%s,%s,%s,%s)'''
         cursor.execute(query, (numOfItem, totalSize, numOfRequests, missRate, hitRate, now))
-        print("success", now)
         cnx.commit()
 
 
 with webapp.app_context():
     get_config()
-    init_db()
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=refresh_stat, trigger="interval", seconds=5)
     scheduler.start()
@@ -89,10 +83,9 @@ with webapp.app_context():
 
 def subinvalidatekey(key):
     """invalidatekey in memcache when needed"""
-    # request+1
-    cacheState.reqServed_num += 1
-
     if key in memcache:
+        # request+1 only if there's need to invalidate
+        cacheState.reqServed_num += 1
         memcache.pop(key, None)
     data = {"success": "true"}
     response = webapp.response_class(
