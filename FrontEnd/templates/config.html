@@ -43,7 +43,7 @@
                 </div>
                 <div id ="upload">
                     <label for="capacity" class="form-label">Capacity in MB</label>
-                    <input type="number" name="capacity" id="capacity" class="form-control" value="{{ capacity }}" required/>
+                    <input type="number" min="0" name="capacity" id="capacity" class="form-control" value="{{ capacity }}" required/>
                 </div>
                 <div style="text-align: center">
                     <button type="submit" value="submit" class="form-button" style="background-color: #8F9385">Submit Change</button>
