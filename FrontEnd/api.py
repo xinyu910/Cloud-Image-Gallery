@@ -90,8 +90,8 @@ def apiUpload():
 
     # path to save the image
     folder = webapp.config['UPLOAD_FOLDER']
-    if not os.path.isdir(folder):
-        os.mkdir(folder)
+    if not os.path.exists(folder):
+        os.makedirs(folder)
     filename = os.path.join(folder, secure_filename(image_file.filename))
     filename = filename.replace('\\', '/')
 
