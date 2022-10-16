@@ -10,11 +10,12 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
 import json
 
-'''INIT'''
+'''///INIT GLOBAL DATA///'''
 global memcacheConfig
 global cacheState
 cacheState = Stats()  # currently testing, use cacheState.hit cacheState.miss for hit/miss rate
 
+"""///For database connection///"""
 
 def connect_to_database():
     return mysql.connector.connect(user=db_config['user'],
@@ -50,7 +51,13 @@ def get_config():
     memcacheConfig = {'capacity': rows[0][0], 'policy': rows[0][1]}
 
 
+"""///FOR WRITING TO DB EVERY 5 SEC///"""
 def refresh_stat():
+    """
+    refresh stat(writing to the database every 5 second, recoding memcache statistics)
+    with webapp context defined below
+
+    """
     with webapp.app_context():
         numOfItem = len(memcache.keys())
         totalSize = cacheState.total_image_size/1048576
@@ -86,8 +93,12 @@ with webapp.app_context():
     atexit.register(lambda: scheduler.shutdown())
 
 
+"""///FUNCTION INVALIDATE KEY FOR MEMCACHE///"""
 def subinvalidatekey(key):
-    """invalidatekey in memcache when needed"""
+    """
+    subinvalidatekey delete key from memcache when needed
+    only add to request number when delete happened
+    """
     # request+1
     if key in memcache:
         memcache.pop(key, None)
@@ -101,11 +112,11 @@ def subinvalidatekey(key):
     return response
 
 
-"""replacement policies"""
-
-
+"""///REPLACEMENT POLICY///"""
 def dictLRU():
-    """LRU: remove the oldest key in memcache"""
+    """
+    LRU: remove the "oldest" key in memcache
+    """
     OldTimeStamp = min([d['time'] for d in memcache.values()])
     oldestKey = ""
     for key in memcache.keys():
@@ -117,7 +128,9 @@ def dictLRU():
 
 
 def dictRandom():
-    """Remove a key randomly"""
+    """
+    Remove a key randomly from memcahce
+    """
     keys = list(memcache.keys())
     keyIndex = random.randint(0, len(keys) - 1)
     # image size deducted
@@ -125,31 +138,30 @@ def dictRandom():
     del memcache[keys[keyIndex]]  # delete the random key
 
 
+"""///CAPACITY CONTROL///"""
 def fitCapacity(extraSize):
-    """if the given size exceeded cache capacity, delete keys based on selected policy"""
-    #print("before ", memcache.keys())
-    #print(cacheState.total_image_size)
+    """
+    if the given size exceeded cache capacity, delete keys based on selected policy
+
+    @param extraSize:
+    """
     while (extraSize + cacheState.total_image_size) > memcacheConfig['capacity'] * 1048576 and bool(memcache):
         # capacity full
-        print("Error: Larger than capacity, remove one")
         if memcacheConfig['policy'] == "LRU":
             dictLRU()
         else:
             dictRandom()
-    #print("after ", memcache.keys())
-    #print(cacheState.total_image_size)
 
 
+"""///FUNCTION PUT KEY FOR MEMCACHE"""
 def subPUT(key, value):
     """
+    given key and image data, put key and image data into memcache
+    always fit capacity make sure not overload
+
     :param key: key
     :param value: base64 image
-    :return:
-        json: "success": "false",
-            "error": {
-                "code": servererrorcode
-                "message": errormessage
-                }
+    :return: response
     """
     """file type error"""
     # request+1
@@ -167,7 +179,8 @@ def subPUT(key, value):
             mimetype='application/json'
         )
         return response
-    image_size = sys.getsizeof(value)
+
+    image_size = sys.getsizeof(value)#total image size larger than capacity
     if image_size > memcacheConfig['capacity'] * 1048576:
         data = {"success": "true"}
         response = webapp.response_class(
@@ -177,15 +190,11 @@ def subPUT(key, value):
         )
         return response
 
-    # subinvalidatekey(key)  # remove key if the key is already in the cache
-
+    #   capacity allowed
     fitCapacity(image_size)  # fit capacity
     # add the key image pair in the cache
     memcache[key] = {'content': value, 'time': datetime.datetime.now()}
-    print("after put, now:", memcache.keys())
     cacheState.total_image_size = cacheState.total_image_size + image_size
-    #print("final ", memcache.keys())
-    #print(cacheState.total_image_size)
     data = {"success": "true"}
     response = webapp.response_class(
         response=json.dumps(data),
@@ -194,14 +203,18 @@ def subPUT(key, value):
     )
     return response
 
-
+"""///FUNCTION GRT KEY FOR MEMCACHE///"""
 def subGET(key):
+    """
+    get method, returns images data
+    also update time stamp
+    @param key:
+    @return: response code and content from memcache
+    """
     # request+1
     cacheState.reqServed_num += 1
-    print("tryget:", key,"-", key in memcache.keys())
     if key in memcache.keys():
         # hit
-        # cacheState.listOfStat.append(("hit", datetime.datetime.now()))
         cacheState.hitCount += 1
         print("success hit")
         # timestamp update
@@ -232,8 +245,13 @@ def subGET(key):
         )
         return response
 
-
+"""///FUNCTION CLEAN KEY AND CONTENT FOR MEMCACHE///"""
 def subCLEAR():
+    """
+    clean everthing in memcahce
+    reset memcache statistic
+    @return: response
+    """
     # request+1
     cacheState.reqServed_num += 1
     cacheState.total_image_size = 0
@@ -247,20 +265,23 @@ def subCLEAR():
     )
     return response
 
-
+"""///LINK WITH FRONT APP, WORKING ON ./MEM/<URL DEFINED BELOW>///"""
 @webapp.route('/', methods=['POST', 'GET'])
 def welcome():
+    #   base page un used
     return "welcome"
 
 
 @webapp.route('/GET', methods=['POST', 'GET'])
 def GET():
+    #   wrap subget
     key = request.json["key"]
     return subGET(key)
 
 
 @webapp.route('/PUT', methods=['POST'])
 def PUT():
+    #   wrap subput
     key = request.json["key"]
     image = request.json["image"]
     return subPUT(key, image)
@@ -268,12 +289,18 @@ def PUT():
 
 @webapp.route('/invalidateKey', methods=['POST', 'GET'])
 def invalidateKey():
+    #   wrap subinvalidate key
     key = request.json["key"]
     return subinvalidatekey(key)
 
 
 @webapp.route('/refreshConfiguration', methods=['POST'])
 def refreshConfiguration():
+    """
+    when clean() called, do clean
+    else reconfigure the configuration of the memcache
+    @return:
+    """
     # request+1
     cacheState.reqServed_num += 1
     clear_result = request.json['clear']
@@ -285,9 +312,9 @@ def refreshConfiguration():
         fitCapacity(0)
     data = {"success": "true"}
     response = webapp.response_class(
-        response = json.dumps(data),
-        status = 200,
-        mimetype = 'application/json'
+        response=json.dumps(data),
+        status=200,
+        mimetype='application/json'
     )
     return response
 
