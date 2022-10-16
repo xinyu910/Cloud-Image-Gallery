@@ -70,7 +70,6 @@ def refresh_stat():
         else:
             missRate = 0
             hitRate = 0
-        print(cacheState.missCount, "-", cacheState.hitCount, "/", missRate, " - ", hitRate)
 
         now = datetime.datetime.now()
         now = now.strftime('%Y-%m-%d %H:%M:%S')
@@ -215,7 +214,6 @@ def subGET(key):
     if key in memcache.keys():
         # hit
         cacheState.hitCount += 1
-        print("success hit")
         # timestamp update
         memcache[key]['time'] = datetime.datetime.now()
         data = {
@@ -230,7 +228,6 @@ def subGET(key):
         return response
     else:
         # miss
-        print("miss")
         cacheState.missCount += 1
         data = {"success": "false",
                 "error": {
