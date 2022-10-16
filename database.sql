@@ -20,7 +20,7 @@ INSERT INTO configurations VALUES(1, 1024, "Random Replacement");
 
 CREATE TABLE statistics(id int NOT NULL AUTO_INCREMENT,
                         numOfItem int NOT NULL,
-                        totalSize int NOT NULL,
+                        totalSize DECIMAL(6,3) NOT NULL,
                         numOfRequests int NOT NULL,
                         missRate DECIMAL(6,3) NOT NULL,
                         hitRate DECIMAL(6,3) NOT NULL,

@@ -53,7 +53,7 @@ def get_config():
 def refresh_stat():
     with webapp.app_context():
         numOfItem = len(memcache.keys())
-        totalSize = cacheState.total_image_size
+        totalSize = cacheState.total_image_size/1048576
         numOfRequests = cacheState.reqServed_num
         if cacheState.hitCount != 0 or cacheState.missCount != 0:
             hitmiss = cacheState.missCount + cacheState.hitCount
