@@ -97,12 +97,11 @@ with webapp.app_context():
 def subinvalidatekey(key):
     """
     subinvalidatekey delete key from memcache when needed
-    only add to request number when delete happened
     """
     # request+1
+    cacheState.reqServed_num += 1
     if key in memcache:
         memcache.pop(key, None)
-        cacheState.reqServed_num += 1
     data = {"success": "true"}
     response = webapp.response_class(
         response=json.dumps(data),
