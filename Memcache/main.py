@@ -153,7 +153,6 @@ def subPUT(key, value):
                 }
     """
     """file type error"""
-    print("put key: ", key)
     # request+1
     cacheState.reqServed_num += 1
 
@@ -171,14 +170,10 @@ def subPUT(key, value):
         return response
     image_size = sys.getsizeof(value)
     if image_size > memcacheConfig['capacity'] * 1048576:
-        data = {"success": "false",
-                "error": {
-                    "code": 400,
-                    "message": "Error: file size exceed capacity"
-                }}
+        data = {"success": "true"}
         response = webapp.response_class(
             response=json.dumps(data),
-            status=400,
+            status=200,
             mimetype='application/json'
         )
         return response
