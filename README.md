@@ -2,9 +2,9 @@
 
 # About Project
 
-This project is a storage web application with an in-memory key-value memory cache. Python and the Flask framework are used to implement this project. This project will also be deployed and runed on Amazon EC2. The project consists of two flask instances, one is called FrontEnd which displays web pages and interacts with users, the other one is an internal memcache integrated with a scheduler for periodic reporting statistics tasks. 
+This project is a storage web application with an in-memory key-value memory cache. Python and the Flask framework are used to implement this project. This project will also be deployed and run on Amazon EC2. The project consists of two flask instances, one is called FrontEnd which displays web pages and interacts with users, and the other one is an internal memcache integrated with a scheduler for periodic reporting statistics tasks. 
 
-Key components includes:
+Key components include:
 
 * A web browser that initiates requests
 
@@ -33,7 +33,7 @@ You can install via all packages listed before using pip3 command by first activ
 
 # Installation
 
-Make sure port 5000 is opende before initializing the server.
+Make sure port 5000 is opened before initializing the server.
 
 Use `git clone https://github.com/xinyu910/Cloud-Computing-MemCache.git`
 
@@ -54,7 +54,7 @@ You are welcome to:
 
 * Make Changes
 
-* If yo have any issues you would like to discuss, see readme file-contact for contact informations.
+* If you have any issues you would like to discuss, see the readme file-contact for contact information.
 
 see [Contributing](https://github.com/xinyu910/Cloud-Computing-MemCache/blob/main/CONTRIBUTING.md) for details
 
