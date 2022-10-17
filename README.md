@@ -41,7 +41,7 @@ Go to `localhost:5000` to access the application.
 
 
 # License
-
+see file https://github.com/xinyu910/Cloud-Computing-MemCache/commit/7e5a9d3732e5ef3b4975cdb0eea4be54c50379d2
 MIT License
 
 Copyright (c) 2022 ECE1779f2022G11
