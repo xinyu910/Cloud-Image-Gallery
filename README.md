@@ -29,7 +29,9 @@ Main packages required:
 * APScheduler 3.8.0
 * Werkzeug 2.2.2
 
-You can install via all packages listed before using pip3 command by first activating your venv 
+You can install all packages listed before using pip3 command by first activating your venv 
+
+We also provide requirement documents for more detailed information. 
 
 # Installation
 
