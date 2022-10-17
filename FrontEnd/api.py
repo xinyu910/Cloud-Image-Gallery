@@ -99,10 +99,10 @@ def apiUpload():
     # if the database has the key, delete the associated image in the file system
     # and replace the old file location in the database with the new one
     if rows:
-        image_file.save(filename)
         path_to_delete = rows[0][0]
         if os.path.isfile(path_to_delete):
             os.remove(path_to_delete)
+        image_file.save(filename)
         query = '''UPDATE images SET image_path = %s WHERE image_key = %s'''
         cursor.execute(query, (filename, image_key))
         cnx.commit()
