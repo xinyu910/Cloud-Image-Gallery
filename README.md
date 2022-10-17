@@ -29,10 +29,14 @@ Main packages required:
 * APScheduler 3.8.0
 * Werkzeug 2.2.2
 
+You can install via all packages listed before using pip3 command by first activating your venv 
 
 # Installation
 
-`Use git clone `
+Make sure port 5000 is opende before initializing the server.
+
+Use `git clone https://github.com/xinyu910/Cloud-Computing-MemCache.git`
+
 Download the software package, run `start.sh` in the root dictionary to start the system.
 
 Go to `localhost:5000` to access the application.
@@ -52,19 +56,18 @@ You are welcome to:
 
 * If yo have any issues you would like to discuss, see readme file-contact for contact informations.
 
-see https://github.com/xinyu910/Cloud-Computing-MemCache/blob/main/CONTRIBUTING.md for details
+see [Contributing](https://github.com/xinyu910/Cloud-Computing-MemCache/blob/main/CONTRIBUTING.md) for details
 
 
 # License
-see file https://github.com/xinyu910/Cloud-Computing-MemCache/commit/7e5a9d3732e5ef3b4975cdb0eea4be54c50379d2
-MIT License
+see file [MIT License](https://github.com/xinyu910/Cloud-Computing-MemCache/commit/7e5a9d3732e5ef3b4975cdb0eea4be54c50379d2)
 
-for information about `Copyright (c) 2022 ECE1779f2022G11 `of this project
+for information about `Copyright (c) 2022 ECE1779f2022G11 `
 
 
 # Citation
 
-For citation information， please refer to https://github.com/xinyu910/Cloud-Computing-MemCache/blob/main/CITATION.cff
+For citation information， please refer to [Citation](https://github.com/xinyu910/Cloud-Computing-MemCache/blob/main/CITATION.cff)
 
 
 # Contact
