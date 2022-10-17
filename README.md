@@ -72,7 +72,7 @@ For citation information， please refer to [Citation](https://github.com/xinyu9
 
 # Contact
 
-Yuxin Liu xinyuxy.liu@mail.utoronto.ca
+Xinyu Liu xinyuxy.liu@mail.utoronto.ca
 
 Ziqi Zhou zq.zhou@mail.utoronto.ca
 
