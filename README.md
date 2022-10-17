@@ -64,7 +64,7 @@ for information about `Copyright (c) 2022 ECE1779f2022G11 `of this project
 
 # Citation
 
-
+For citation information， please refer to https://github.com/xinyu910/Cloud-Computing-MemCache/blob/main/CITATION.cff
 
 
 # Contact
