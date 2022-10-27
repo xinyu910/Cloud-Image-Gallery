@@ -100,6 +100,7 @@ def subinvalidatekey(key):
     # request+1
     cacheState.reqServed_num += 1
     if key in memcache:
+        cacheState.total_image_size = cacheState.total_image_size - sys.getsizeof(memcache[key]['content'])
         memcache.pop(key, None)
     data = {"success": "true"}
     response = webapp.response_class(
