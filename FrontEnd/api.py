@@ -50,8 +50,8 @@ def apiUpload():
     calls invalidatekey in memcache
     Returns: response object fot test
     """
-    image_key = request.form.get('key')
-    image_file = request.files.get('file', '')
+    image_key = request.form['key']
+    image_file = request.files['file']
 
     # check if file is empty
     if image_file.filename == '' or image_key == '':
@@ -125,7 +125,7 @@ def apiUpload():
     cnx.close()
     # invalidate key in memcache
     dataSend = {"key": image_key}
-    res = requests.post('http://localhost:5001/invalidateKey', json=dataSend)
+    res = requests.post('http://localhost:5000/mem/invalidateKey', json=dataSend)
     if res.status_code != 200:
         data = {
             "success": "false",
@@ -168,7 +168,7 @@ def apikey(key_value):
 
     # # find if this key image pair is in memcache, if so, retrieve and render it directly from cache.
     dataSend = {"key": image_key}
-    res = requests.post('http://localhost:5001/GET', json=dataSend)
+    res = requests.post('http://localhost:5000/mem/GET', json=dataSend)
     if res.status_code == 200:
         data = {
             "success": "true",
@@ -198,7 +198,7 @@ def apikey(key_value):
             path = path.replace('\\', '/')
             base64_image = base64.b64encode(open(path, "rb").read()).decode('utf-8')
             dataSend = {"key": image_key, "image": base64_image}
-            res = requests.post('http://localhost:5001/PUT', json=dataSend)
+            res = requests.post('http://localhost:5000/mem/PUT', json=dataSend)
             if res.status_code != 200:
                 data = {
                     "success": "false",

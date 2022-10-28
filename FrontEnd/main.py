@@ -85,7 +85,10 @@ def retrieve_key_form():
 @webapp.route('/key', methods=['POST'])
 def key():
     """Display the image user browsed by key"""
-    image_key = request.form.get('key')
+    if request.method == 'POST':
+        image_key = request.form['key']
+    else:
+        image_key = request.form.get('key')
 
     if image_key == '':
         return redirect(url_for('failure', msg="Key is not given or not given from form"))
@@ -153,12 +156,17 @@ def config():
     return render_template("config.html", capacity=rows[0][0], policy=rows[0][1])
 
 
-@webapp.route('/update_config', methods=['POST'])
+@webapp.route('/update_config', methods=['GET', 'POST'])
 def update_config():
     """update the new configuration value get from user in the database and memcache"""
-    capacity_result = int(request.form.get('capacity'))
-    policy_result = request.form.get('policy')
-    clear_result = request.form.get('clear')
+    if request.method == 'POST':
+        capacity_result = int(request.form['capacity'])
+        policy_result = request.form['policy']
+        clear_result = request.form['clear']
+    else:
+        capacity_result = int(request.form.get('capacity'))
+        policy_result = request.form.get('policy')
+        clear_result = request.form.get('clear')
 
     cnx = get_db()
     cursor = cnx.cursor()
@@ -182,15 +190,19 @@ def upload_form():
     return render_template("upload_form.html")
 
 
-@webapp.route('/upload', methods=['POST'])
+@webapp.route('/upload', methods=['GET', 'POST'])
 def upload():
     """
     Upload the key image pair. Store the image in local filesystem and put the file location in the database
     calls invalidatekey in memcache.
     Returns: response object fot test
     """
-    image_key = request.form.get('key')
-    image_file = request.files.get('file', '')
+    if request.method == 'POST':
+        image_key = request.form['key']
+        image_file = request.files['file']
+    else:
+        image_key = request.form.get('key')
+        image_file = request.files.get('file')
 
     # check if file is empty
     if image_file.filename == '' or image_key == '':
@@ -205,7 +217,6 @@ def upload():
 
     # check if database has the key or not
     has_key = ''' SELECT image_path FROM images WHERE image_key = %s'''
-
     cursor.execute(has_key, (image_key,))
 
     folder = webapp.config['UPLOAD_FOLDER']
