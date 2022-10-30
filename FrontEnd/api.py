@@ -169,10 +169,11 @@ def apikey(key_value):
     # # find if this key image pair is in memcache, if so, retrieve and render it directly from cache.
     dataSend = {"key": image_key}
     res = requests.post('http://localhost:5000/mem/GET', json=dataSend)
+    content = res.json()['content']
     if res.status_code == 200:
         data = {
             "success": "true",
-            "content": res.json()['content']
+            "content": content
         }
         response = webapp.response_class(
             response=json.dumps(data),
