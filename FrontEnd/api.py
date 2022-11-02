@@ -11,6 +11,19 @@ import requests
 @webapp.route('/api/list_keys', methods=['POST'])
 def list_keys():
     """Return list_keys response"""
+    if request.method == 'GET':
+        data = {
+            "success": "false",
+            "error": {
+                "code": 405,
+                "message": "Method not allowed"
+            }}
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=405,
+            mimetype='application/json')
+        return response
+
     try:
         cnx = get_db()
         cursor = cnx.cursor()
@@ -50,8 +63,34 @@ def apiUpload():
     calls invalidatekey in memcache
     Returns: response object fot test
     """
+    if request.method == 'GET':
+        data = {
+            "success": "false",
+            "error": {
+                "code": 405,
+                "message": "Method not allowed"
+            }}
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=405,
+            mimetype='application/json')
+        return response
+
     image_key = request.form['key']
     image_file = request.files['file']
+
+    if not image_file or not image_key:
+        data = {
+            "success": "false",
+            "error": {
+                "code": 401,
+                "message": "Missing parameters"
+            }}
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=401,
+            mimetype='application/json')
+        return response
 
     # check if file is empty
     if image_file.filename == '' or image_key == '':
@@ -59,7 +98,7 @@ def apiUpload():
             "success": "false",
             "error": {
                 "code": 400,
-                "message": "image file or key is not given"
+                "message": "image file or key given is empty"
             }}
         response = webapp.response_class(
             response=json.dumps(data),
@@ -152,13 +191,26 @@ def apiUpload():
 
 @webapp.route('/api/key/<string:key_value>', methods=['POST'])
 def apikey(key_value):
+    if request.method == 'GET':
+        data = {
+            "success": "false",
+            "error": {
+                "code": 405,
+                "message": "Method not allowed"
+            }}
+        response = webapp.response_class(
+            response=json.dumps(data),
+            status=405,
+            mimetype='application/json')
+        return response
+
     image_key = key_value
     if image_key == '':
         data = {
             "success": "false",
             "error": {
                 "code": 400,
-                "message": "Image Key is not given"
+                "message": "Image Key is empty"
             }}
         response = webapp.response_class(
             response=json.dumps(data),

@@ -61,7 +61,7 @@ def failure():
     return render_template("failure.html", msg=msg)
 
 
-@webapp.route('/listKeys', methods=['GET'])
+@webapp.route('/listKeys', methods=['GET', 'POST'])
 def listKeys():
     """Display the html page that shows all the keys in the database"""
     cnx = get_db()
@@ -76,7 +76,7 @@ def listKeys():
     return render_template("key_list.html", cursor=rows)
 
 
-@webapp.route('/retrieve_key_form', methods=['GET'])
+@webapp.route('/retrieve_key_form')
 def retrieve_key_form():
     """Display an empty HTML form that allows users to browse image by key"""
     return render_template("key_form.html")
@@ -88,10 +88,13 @@ def key():
     if request.method == 'POST':
         image_key = request.form['key']
     else:
-        image_key = request.form.get('key')
+        return redirect(url_for('failure', msg="Method not allowed"))
+
+    if not image_key:
+        return redirect(url_for('failure', msg="Key is not given"))
 
     if image_key == '':
-        return redirect(url_for('failure', msg="Key is not given or not given from form"))
+        return redirect(url_for('failure', msg="Key is empty"))
 
     # find if this key image pair is in memcache, if so, retrieve and render it directly from cache.
     dataSend = {"key": image_key}
@@ -125,7 +128,7 @@ def key():
             return redirect(url_for('failure', msg="Unknown Key"))
 
 
-@webapp.route('/statistics', methods=['GET'])
+@webapp.route('/statistics')
 def statistics():
     """From database get and show past 10 minutes' memcache statistics"""
     cnx = get_db()
@@ -143,7 +146,7 @@ def statistics():
     return render_template("statistics.html", rows=rows)
 
 
-@webapp.route('/config', methods=['GET'])
+@webapp.route('/config')
 def config():
     """render the configuration form, show form default value that is consistent with the database values"""
     cnx = get_db()
@@ -156,17 +159,22 @@ def config():
     return render_template("config.html", capacity=rows[0][0], policy=rows[0][1])
 
 
-@webapp.route('/update_config', methods=['GET', 'POST'])
+@webapp.route('/update_config', methods=['POST'])
 def update_config():
+
     """update the new configuration value get from user in the database and memcache"""
     if request.method == 'POST':
         capacity_result = int(request.form['capacity'])
         policy_result = request.form['policy']
         clear_result = request.form['clear']
     else:
-        capacity_result = int(request.form.get('capacity'))
-        policy_result = request.form.get('policy')
-        clear_result = request.form.get('clear')
+        return redirect(url_for('failure', msg="Method not allowed"))
+
+    if not capacity_result or not policy_result or not clear_result:
+        return redirect(url_for('failure', msg="Missing form information"))
+
+    if capacity_result == '' or policy_result == '' or clear_result == '':
+        return redirect(url_for('failure', msg="One of the form parameter is empty"))
 
     cnx = get_db()
     cursor = cnx.cursor()
@@ -184,13 +192,13 @@ def update_config():
         return redirect(url_for('failure', msg="Memcache configuration error"))
 
 
-@webapp.route('/upload_form', methods=['GET'])
+@webapp.route('/upload_form')
 def upload_form():
     """Display an empty HTML form that allows users to define upload new key image pair"""
     return render_template("upload_form.html")
 
 
-@webapp.route('/upload', methods=['GET', 'POST'])
+@webapp.route('/upload', methods=['POST'])
 def upload():
     """
     Upload the key image pair. Store the image in local filesystem and put the file location in the database
@@ -201,12 +209,14 @@ def upload():
         image_key = request.form['key']
         image_file = request.files['file']
     else:
-        image_key = request.form.get('key')
-        image_file = request.files.get('file')
+        return redirect(url_for('failure', msg="Method not allowed"))
+
+    if not image_file or not image_key:
+        return redirect(url_for('failure', msg="Missing image file or key"))
 
     # check if file is empty
     if image_file.filename == '' or image_key == '':
-        return redirect(url_for('failure', msg="No image file or key given or they are not given through form"))
+        return redirect(url_for('failure', msg="Image file or key is empty"))
 
     # check if the uploaded file type is allowed
     if not allowed_file(image_file.filename):
