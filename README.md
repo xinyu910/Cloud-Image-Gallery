@@ -29,15 +29,13 @@ Main packages required:
 * APScheduler 3.8.0
 * Werkzeug 2.2.2
 
-You can install all packages listed before using pip3 command by first activating your venv 
-
-We also provide requirement documents for more detailed information. 
+Execute `start.sh` will install the required packages for you.
 
 # Installation
 
 Make sure port 5000 is opened before initializing the server.
 
-Use `git clone https://github.com/xinyu910/Cloud-Computing-MemCache.git`
+Use `git clone https://github.com/xinyu910/Cloud--Image-Gallery.git`
 
 Download the software package, run `start.sh` in the root dictionary to start the system.
 
