@@ -1,4 +1,4 @@
-# Cloud-Computing-MemCache (UofT ECE 1779 Project)
+# Cloud-Image-Gallery
 
 # About Project
 
@@ -7,13 +7,9 @@ This project is a storage web application with an in-memory key-value memory cac
 Key components include:
 
 * A web browser that initiates requests
-
 * A web front end that manages requests and operations
-
 * A local file system where all data is stored
-
 * A mem-cache that provides faster access
-
 * A relational database
 
 
