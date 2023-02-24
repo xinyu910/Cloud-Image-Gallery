@@ -13,7 +13,6 @@ Key components include:
 * A relational database
 
 
-
 # Prerequisites
 
 Main packages required:
@@ -36,3 +35,20 @@ Use `git clone https://github.com/xinyu910/Cloud--Image-Gallery.git`
 Download the software package, run `start.sh` in the root dictionary to start the system.
 
 Go to `localhost:5000` to access the application.
+
+# Screenshots of the usage scenarios
+* Home Page:
+![HomePage](https://user-images.githubusercontent.com/52727328/221234464-678fe64b-4f63-4fed-bab6-17d2769604a8.jpg)
+* Browse Image Form Page:
+![BrowsePage](https://user-images.githubusercontent.com/52727328/221234460-191791c6-8cbe-4695-843e-45822458fe89.jpg)
+* Configuration Page:
+![ConfigurationPage](https://user-images.githubusercontent.com/52727328/221234462-f51d42b0-19fe-4748-ac27-3b809054950c.jpg)
+* Show Keys Page:
+![KeysPage](https://user-images.githubusercontent.com/52727328/221234469-c650ab08-38ad-4461-aa02-9bdaddbc828d.jpg)
+* Show Image Page:
+![ShowPage](https://user-images.githubusercontent.com/52727328/221234471-4ba3d88a-c806-4a1f-9473-474b0f979696.jpg)
+* Statistics Page:
+![StatisticsPage](https://user-images.githubusercontent.com/52727328/221234472-350ae7b8-72bd-415e-a67b-450856fabcc2.jpg)
+* Upload Form Page
+![UploadPage](https://user-images.githubusercontent.com/52727328/221234473-9b797f97-fa01-43cc-88a8-48808dff496f.jpg)
+
