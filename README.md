@@ -4,6 +4,8 @@
 
 This project is a storage web application with an in-memory key-value memory cache. Python and the Flask framework are used to implement this project. This project will also be deployed and run on Amazon EC2. The project consists of two flask instances, one is called FrontEnd which displays web pages and interacts with users, and the other one is an internal memcache integrated with a scheduler for periodic reporting statistics tasks. 
 
+Can found elastic version in this repo: https://github.com/xinyu910/Elastic-Cloud-Image-Gallery
+
 Key components include:
 
 * A web browser that initiates requests
