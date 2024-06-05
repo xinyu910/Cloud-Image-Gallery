@@ -11,7 +11,7 @@ python-dateutil==2.8.2
 s3transfer==0.6.0
 six==1.16.0
 urllib3==1.26.12
-Werkzeug==2.2.2
+Werkzeug==3.0.3
 zipp==3.9.0
 APScheduler==3.9.1
 mysql-connector==2.2.9
